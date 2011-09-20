@@ -34,7 +34,6 @@ require_once dirname( __FILE__ ) . '/urtak_api.php';
 // CONSTANTS
 define ('URTAK_PLUGINDIR'   , WP_PLUGIN_URL . '/' . str_replace (basename (__FILE__), '', plugin_basename (__FILE__)));
 define ('URTAK_IMAGESDIR'   , URTAK_PLUGINDIR . "images");
-define ('URTAK_API_CLIENT'  , "Urtak for Wordpress v0.1, running on WP ".$wp_version);
 
 // HOOKS
 
@@ -81,7 +80,7 @@ function urtak_api() {
     'api_key'         => get_option('urtak_api_key'),
     'api_home'        => get_option('urtak_api_home'),
     'urtak_home'      => get_option('urtak_home'),
-    'client_name'     => URTAK_API_CLIENT
+    'client_name'     => "Urtak for Wordpress v0.1, running on WP ".$wp_version
   );
   
   // Instantiate an Urtak API Wrapper Object
