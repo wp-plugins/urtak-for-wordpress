@@ -3,30 +3,14 @@
  * @package Urtak
  * @version 0.0.1
  */
+
 /*
 Plugin Name: Urtak
 Plugin URI: http://wordpress.org/extend/plugins/urtak/
 Description: Urtak is the best way for your visitors to respond to content. Engage your users, ask and answer questions to create structured conversations and use that to better understand your audience and quite possibly... the world. After activation go to the <a href="plugins.php?page=urtak-config">Urtak configuration</a> page. 
 Author: Kunal Shah
-Version: 0.0.1
-Author URI: http://urtak.com/
-License: GPL2
-*/
-
-/*  Copyright 2011  Kunal Shah  (email : kunal@urtak.com)
-
-    This program is free software; you can redistribute it and/or modify
-    it under the terms of the GNU General Public License, version 2, as 
-    published by the Free Software Foundation.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+Version: 0.9.0
+Author URI: https://urtak.com/
 */
 
 require_once dirname( __FILE__ ) . '/urtak_api.php';
@@ -74,6 +58,7 @@ wp_register_sidebar_widget(
 );
 
 function urtak_api() {
+  global $wp_version;
   // Build configuration array
   $configuration = array(
     'publication_key' => get_option('urtak_publication_key'),
@@ -127,7 +112,7 @@ function urtak_admin_warnings() {
   if ( !get_option('urtak_publication_key') && !isset($_POST['submit']) ) {
     function urtak_warning() {
       echo "
-      <div id='urtak-warning' class='updated fade'><p><strong>".__('Urtak is almost ready.')."</strong> ".sprintf(__('You must <a href="%1$s">enter your urtak API key</a> for it to work.'), "plugins.php?page=urtak-key-config")."</p></div>
+      <div id='urtak-warning' class='updated fade'><p><strong>".__('Urtak is almost ready.')."</strong> ".sprintf(__('You must <a href="%1$s">enter your urtak API key</a> for it to work.'), "plugins.php?page=urtak-config")."</p></div>
       ";
     }
     add_action('admin_notices', 'urtak_warning');
