@@ -65,6 +65,55 @@ class Urtak {
   }
   
   // --------------------------------------------------------------------
+  //                                ACCOUNTS
+  // --------------------------------------------------------------------
+
+  /** Lookup An Account
+   * 
+   * @access  @public
+   * @params  Lookup _your_ acccount
+   * @return  UrtakResponse
+   */
+  public function get_account($id) {
+    return $this->curl_request('/accounts/'.$id, 'GET', array());
+  }
+
+  /** Create an Account
+   * 
+   * @access  @public
+   * @params  Create an acccount
+   * @return  UrtakResponse
+   */
+  public function create_account($options) {
+    return $this->curl_request('/accounts', 'POST', array("account" => $options));
+  }
+
+  // --------------------------------------------------------------------
+  //                                PUBLICATIONS
+  // --------------------------------------------------------------------
+
+  /** Lookup a Publication
+   * 
+   * @access  @public
+   * @params  Lookup a publication
+   * @return  UrtakResponse
+   */
+  public function get_publication($id) {
+    return $this->curl_request('/publications/'.$id, 'GET', array());
+  }
+
+  /** Create a Publication
+   * 
+   * @access  @public
+   * @params  Create a publication
+   * @return  UrtakResponse
+   */
+  public function create_publication($property, $value, $options) {
+    $data = array($property => $value, 'publication' => $options);
+    return $this->curl_request('/publications', 'POST', $data);
+  }
+
+  // --------------------------------------------------------------------
   //                                URTAKS
   // --------------------------------------------------------------------
 
@@ -274,9 +323,9 @@ class Urtak {
     // Return output as XML/JSON w/ headers
     if(strtoupper($this->api_format) == 'XML')
     {
-      return "application/xml";
+      return "application/vnd.urtak.urtak+xml; version=1.0";
     } elseif(strtoupper($this->api_format) == 'JSON') {   
-      return "application/json";
+      return "application/vnd.urtak.urtak+json; version=1.0";
     }
   }
 
@@ -348,7 +397,7 @@ class Urtak {
     $response = curl_exec($curl_handle);
     $code     = curl_getinfo($curl_handle, CURLINFO_HTTP_CODE);
     curl_close($curl_handle);
-
+    
     if($this->api_format == "JSON") {
       $body = json_decode($response, true);
       return new UrtakResponse($body, $code, 'JSON');

@@ -36,13 +36,18 @@ add_action('wp_ajax_update_urtak_question', 'update_urtak_question');
 // After a post is saved, create and populate the urtak
 add_action( 'save_post', 'urtak_create_and_add_questions' );
 
-// CSS for Question Asking
+// Global CSS
 add_action( 'admin_head', 'urtak_css' );
 
-// JS for Question Asking
-add_action( 'admin_head', 'urtak_js' );
+// JS for Question Asking in Post Pages Only
+add_action( 'admin_head-post-new.php', 'urtak_post_js' );
+add_action( 'admin_head-post.php',     'urtak_post_js' );
 
-register_activation_hook( __FILE__, 'urtak_activate' );
+// JS for Urtak Configuration
+add_action( 'admin_head-plugins_page_urtak-config', 'urtak_config_js' );
+
+register_activation_hook(  __FILE__, 'urtak_activate');
+register_deactivation_hook(__FILE__, 'urtak_deactivate');
 
 // Nag Users
 urtak_admin_warnings();
@@ -73,6 +78,12 @@ function urtak_api() {
 }
 
 function urtak_activate() {
+  if ( !get_option('urtak_publication_key') ) {
+    update_option( 'urtak_publication_key', '' );
+  }
+  if ( !get_option('urtak_api_key') ) {
+    update_option( 'urtak_api_key', '' );
+  }
   if ( !get_option('urtak_api_home') ) {
     update_option( 'urtak_api_home', 'https://api.urtak.com' );
   }
@@ -91,6 +102,20 @@ function urtak_activate() {
   if( !get_option('urtak_widget_js_protocol') ) {
     update_option('urtak_widget_js_protocol', 'https');
   }
+  // set this so if it changes in the future we don't any issues
+  if( !get_option('urtak_email') ) {
+    update_option('urtak_email', get_option('admin_email'));
+  }
+}
+
+function urtak_deactivate() {
+  delete_option('urtak_api_home');
+  delete_option('urtak_home');
+  delete_option('urtak_automatic_create');
+  delete_option('urtak_automatic_moderation');
+  delete_option('urtak_widget_js_url');
+  delete_option('urtak_widget_js_protocol');
+  delete_option('urtak_email');
 }
 
 // LINKS, BOXES, MENUS
@@ -107,21 +132,28 @@ function urtak_menus() {
 
 // notify users to finish signup process or if API is broke ass
 function urtak_admin_warnings() {
-  global $urtak_response;
-
-  if ( !get_option('urtak_publication_key') && !isset($_POST['submit']) ) {
+  global $display_error;
+  if ( !get_option('urtak_api_key') && !isset($_POST['submit']) ) {
     function urtak_warning() {
       echo "
-      <div id='urtak-warning' class='updated fade'><p><strong>".__('Urtak is almost ready.')."</strong> ".sprintf(__('You must <a href="%1$s">enter your urtak API key</a> for it to work.'), "plugins.php?page=urtak-config")."</p></div>
+      <div id='urtak-warning' class='updated fade'><p><strong>".__('Urtak is almost ready.')."</strong> ".sprintf(__('You must <a href="%1$s">enter your Urtak API key</a> for it to work.'), "plugins.php?page=urtak-config")."</p></div>
       ";
     }
     add_action('admin_notices', 'urtak_warning');
     return;
-  } elseif ( isset($urtak_response) && array_key_exists("error", $urtak_response) ) {
+  } elseif ( !get_option('urtak_publication_key') && !isset($_POST['submit']) ) {
+    function urtak_warning() {
+      echo "
+      <div id='urtak-warning' class='updated fade'><p><strong>".__('Urtak is almost ready.')."</strong> ".sprintf(__('You must <a href="%1$s">enter your Urtak publication key</a> for it to work.'), "plugins.php?page=urtak-config")."</p></div>
+      ";
+    }
+    add_action('admin_notices', 'urtak_warning');
+    return;
+  } elseif ( $display_error ) {
     function urtak_api_error() {
       echo "
       <div id='urtak-api-error' class='updated fade'><p>
-        <strong>".__('Urtak error!')."</strong>".$urtak_response["error"]["message"]."</p></div>
+        <strong>".__('Urtak error!')."</strong>".$display_error."</p></div>
       ";
     }
     add_action('admin_notices', 'urtak_api_error');
@@ -169,123 +201,225 @@ function make_urtak_widget() {
 
 // UI for Urtak Configuration
 function urtak_conf() {
-  // check if this a post request
+  // Form submitted, lets set things up!
   if ( isset($_POST['submit']) ) {
-    // check priviledges if so
-    if ( function_exists('current_user_can') && !current_user_can('manage_options') )
-      die(__('Cheatin&#8217; uh?'));
 
-    // then update settings
+    // check priviledges
+    if ( function_exists('current_user_can') && !current_user_can('manage_options') ) {
+      wp_die("Unauthorized");
+    }
 
-    // set the publication key
+    // --------------------------------------------------------------------
+    // Set Sensible Defaults
+    //      The activation hook should set the defaults. WP Admins may 
+    //      override them here.
+    // --------------------------------------------------------------------
+
+    // API Tokens and Keys
+    update_option( 'urtak_email',           $_POST['urtak_email'] );
+    update_option( 'urtak_api_key',         $_POST['urtak_api_key'] );
     update_option( 'urtak_publication_key', $_POST['urtak_publication_key'] );
 
-    // set the api key
-    update_option( 'urtak_api_key', $_POST['urtak_api_key'] );
-
-    // now overwrite
-    update_option( 'urtak_api_key', $_POST['urtak_api_key'] );
-
-    // the default behavior should be to include automatically so users can ask questions
+    // Set Automatic Creation
     if (array_key_exists('urtak_automatic_create', $_POST)) {
       update_option( 'urtak_automatic_create', 'true' );
     } else {
       update_option( 'urtak_automatic_create', 'false' );
     };
 
+    // Set Community vs. Publisher Moderation
     if (array_key_exists('urtak_automatic_moderation', $_POST)) {
       update_option( 'urtak_automatic_moderation', 'true' );
     } else {
       update_option( 'urtak_automatic_moderation', 'false' );
     };
 
-    // API Endpoints
-    update_option( 'urtak_api_home', $_POST['urtak_api_home'] );
-    update_option( 'urtak_home', $_POST['urtak_home'] );
-    update_option( 'urtak_widget_js_url', $_POST['urtak_widget_js_url'] );
-    update_option( 'urtak_widget_js_protocol', $_POST['urtak_widget_js_protocol'] );
+    // --------------------------------------------------------------------
+    // For Urtak.com Development Staff
+    //      So we can test the plugin against staging. Don't burn yourself.
+    // --------------------------------------------------------------------
+
+    // Set API Endpoints
+    update_option( 'urtak_home',                $_POST['urtak_home'] );
+    update_option( 'urtak_api_home',            $_POST['urtak_api_home'] );
+
+    // Set Widget Endpoints
+    update_option( 'urtak_widget_js_url',       $_POST['urtak_widget_js_url'] );
+    update_option( 'urtak_widget_js_protocol',  $_POST['urtak_widget_js_protocol'] );
     
-    $test_response = urtak_api()->get_urtaks(array());
+    // --------------------------------------------------------------------
+    // Automatic Signup
+    //      We've captured all their preferences. If something is missing
+    //      and we have enough information, we can sign the user up anyway
+    // --------------------------------------------------------------------
 
-?>
-  <div style="margin: 0 0 0 20px; font-size:16px; font-weight:bold;">
-    Settings Updated!<br /><br />
+    // If they haven't set a Publication Key, we are go for launch
+    if (get_option('urtak_publication_key') == "") {
 
-<?php
-  if($test_response->success()) {
-    echo "<span style='color:green;'>Connected to Urtak successfully!</span>";
-  } else {
-    echo "<span style='color:red;'>Error! ".$test_response->error()."</span>";
+      // Okay, they've given us an email address at least, so lets make an account
+      if ((get_option('urtak_api_key') == "") && get_option('urtak_email') != "") {
+        $account_response = urtak_api()->create_account(array('email' => get_option('urtak_email')));
+        
+        // Ballerific! Let's create the publication now
+        if($account_response->success()) {
+          // We should have received an API Key in the response
+          update_option('urtak_api_key', $account_response->body['account']['api_key']);
+
+        // Nothing is going this gals way. We're so sorry.
+        } else {
+          // gracefail, this very likely means the user _already_ has an account under this email address
+          // so then we just need to give em a modal or something so they can sign in and get their keys
+        }
+      }
+
+      // Oh, we have an API Key? We should be able to find them
+      if (get_option('urtak_api_key') != "") {
+
+        $publication_response = urtak_api()->create_publication('email', get_option('urtak_email'), array(
+          'domains'    => get_bloginfo('wpurl'),
+          'name'       => get_bloginfo('name')
+        ));
+        
+        // Great! lets store the key!
+        if($publication_response->success()) {
+          // We should have received an API Key in the response
+          update_option('urtak_publication_key', $publication_response->body['publication']['key']);
+
+        // Nothing is going this gals way. We're so sorry.
+        } else {
+          // gracefail
+        }
+      
+      // No email, No API Key, No Pub Key... then we can't do anything! shucks! people still say shucks, right? right?
+      } else {
+        // ask nicely for an email address...
+      }
+    }
+
+    if((get_option('urtak_api_key') != "") && (get_option('urtak_publication_key') != "")) {
+      // FINALLY! Let's give her a test drive!
+      $test_response = urtak_api()->get_urtaks(array());
+    }
   }
 ?>
 
+  <h1>Urtak Configuration</h1>
+
+  <div style="margin: 0 0 0 20px; font-size:16px; width:600px; line-height:20px;" class="message">
+    <?php
+      if (isset($_POST['submit'])) {
+        echo("settings updated... now let&apos;s see if we can connect to Urtak<br /><br />");
+
+        if(isset($test_response)) {
+          if($test_response->success()) {
+            echo "<span style='color:green; font-weight:bold;'>Connected to Urtak successfully!</span>";
+          } else {
+            echo "<span style='color:red; font-weight:bold;'>Error! ".$test_response->error()."</span>";
+          }
+        } else {
+          echo "<span style='color:red; font-weight:bold;'>We couldn't connect you to Urtak!</span><br />";
+          if(isset($publication_response)) {
+            echo $publication_response->error();
+          } else {
+            if(get_option('urtak_email') == "") {
+              echo "Please enter your email address to proceed. If you already have an Urtak account, use the email address you registered with.<br /><br />";
+            } else {
+              echo "It appears that an Urtak account is already associated with this email address.<br /><br />";
+            }
+            echo "<a href='".get_option('urtak_home')."/api_keys' id='get_urtak_keys_popup'>Click here to sign into your account</a> and get your keys.";
+          }
+        }
+      } elseif((get_option('urtak_api_key') == "") || (get_option('urtak_publication_key') == "")) {
+    ?>
+    <div style="font-size:13px; background-color: #FFFFE0; border:1px solid #E6DB55; padding:10px;">
+      <strong>You&apos;ll need a free Urtak account to get started.</strong><br />
+      Just make sure the email address below is correct and we&apos;ll sign you up.
+      <br /><br />
+      If you already have an account,
+      <?php echo "<a href='".get_option('urtak_home')."/api_keys' id='get_urtak_keys_popup'>click here to sign in</a> and get your API key."; ?>
+    </div>
+    <?php
+      }
+    ?>
   </div>
-<?php
-  }
-
-  $check_add_urtak_to_post = (get_option('urtak_automatic_create') == 'true') ? 'checked' : '';
-  $check_urtak_automatic_moderation = (get_option('urtak_automatic_moderation') == 'true') ? 'checked' : '';
-
-?>
+  
   <form action="" method="post" id="urtak-configuration" style="margin: 0 0 0 20px; width: 600px; ">
-    <h2>Configure Urtak for Your Publication</h2>
-    
-    To get your keys, <a href="https://urtak.com?signup=wordpress" target="_blank">sign up for Urtak here</a>. If you've already signed up, but don't know your keys, <a href="https://urtak.com/dashboard/#keys" target="_blank">click here</a>.
+    <h3><label for="urtak_email"><?php _e('Email Address'); ?></label></h3>
+    <input id="urtak_email" name="urtak_email" type="text" size="40" value="<?php echo get_option('urtak_email') ?>" /> 
 
-    <h3><label for="urtak_publication_key"><?php _e('Publication Key'); ?></label></h3>
-    <p>
-      Since you can use Urtak on your WordPress as well as other <a href="https://developer.urtak.com/platforms" target="_blank">platforms</a>, you&apos;ll need a publication key for each so we know how to store your urtaks when you 
-      visit the <a href="https://urtak.com/dashboard" target="_blank">dashboard</a>.
-    </p>
-    <input id="urtak_publication_key" name="urtak_publication_key" type="text" size="40" maxlength="40" value="<?php echo get_option('urtak_publication_key'); ?>" /> 
-
-    <h3><label for="urtak_api_key"><?php _e('Secret (API) Key'); ?></label></h3>
+    <h3><label for="urtak_api_key"><?php _e('API Key'); ?></label></h3>
     <p>
       For security, all messages from the admin panel to Urtak are transmitted over SSL and further authenticated with your 
-      API Key. Don&apos;t share it or make it public! Your API Key can also be <a href="https://urtak.com/dashboard#keys" target="_blank">found at the dashboard</a>.
+      API Key. Treat it like a password, don&apos;t share it or make it public!
     </p>
     <input id="urtak_api_key" name="urtak_api_key" type="text" size="40" maxlength="40" value="<?php echo get_option('urtak_api_key'); ?>" /> 
 
-    <h3><label for="urtak_automatic_post"><?php _e('Automatically Enable Urtak?'); ?></label></h3>
-    <p>
-      Just like comments, Urtak is useful on every post. From the Add New / Edit Post screen you&apos;ll have the option to exclude 
-      Urtak. We highly recommend you keep this enabled.
+    <p class="submit" style="float:right;">
+      <input type="submit" class="button-primary" name="submit" value="<?php _e('Let&apos;s Get Started &raquo;'); ?>" />
     </p>
-    <input id="urtak_automatic_post" name="urtak_automatic_create" type="checkbox" value="true" <?php echo $check_add_urtak_to_post; ?>/> Place an Urtak on my posts
 
-    <h3><label for="urtak_automatic_moderation"><?php _e('Community Moderation?'); ?></label></h3>
-    <p>
-      We want Urtak to be very simple for you. Instead of requiring you to approve each and every question, we let the community 
-      determine whether or not a question gets removed through the "Don&apos;t Care" option. The more the button gets hit, the less 
-      frequently the question gets shown until it dissapears entirely. Click <a href="https://urtak.com/faq#moderation" target="_blank">here to learn more</a> about community moderation. 
-    </p>
-    <p>
-      Opting out of community moderation means you&apos;ll either receive emails for each question or can moderate through the Add New / Edit Post interface.
-    </p>
-    <input id="urtak_automatic_moderation" name="urtak_automatic_moderation" type="checkbox" value="true" <?php echo $check_urtak_automatic_moderation; ?> /> Let the community moderate
-
-    <div id="urtak_development_options" style="display:none;">
-    <h3>Developer Settings</h3>
-
-    You do *not* need to change these settings. This is a convenience for plugin development and testing only.
-
-    <h3>Urtak API Home</h3>
-    <input id="urtak_api_home" name="urtak_api_home" type="text" size="40" maxlength="40" value="<?php echo get_option('urtak_api_home'); ?>" /> 
-
-    <h3>Urtak.com Home</h3>
-    <input id="urtak_home" name="urtak_home" type="text" size="40" maxlength="40" value="<?php echo get_option('urtak_home'); ?>" /> 
-
-    <h3>Widget Javascript URL</h3>
-    <input id="urtak_home" name="urtak_widget_js_url" type="text" size="40" value="<?php echo get_option('urtak_widget_js_url'); ?>" /> 
-
-    <h3>Widget Javascript Protocol</h3>
-    <input id="urtak_home" name="urtak_widget_js_protocol" type="text" size="40" maxlength="5" value="<?php echo get_option('urtak_widget_js_protocol'); ?>" /> 
-
+    <div style="clear:both;">
+      <a href="#" onclick="jQuery('#urtak_extra_options').toggle(); return false;"><h3>Toggle Advanced Options</h3></a>
     </div>
-    <p class="submit">
+
+    <div id="urtak_extra_options" style="display:none;">
+      <p>
+        You do not need to set anything below. We will automatically create your publication key if you do not have one you&apos;d like to use.
+      </p>
+
+      <h3><label for="urtak_publication_key"><?php _e('Publication Key'); ?></label></h3>
+      <p>
+        Since you can use Urtak on your WordPress as well as other <a href="https://developer.urtak.com/platforms" target="_blank">platforms</a>, you&apos;ll need a publication key for each so we know how to store your urtaks when you 
+        visit the <a href="https://urtak.com/dashboard" target="_blank">dashboard</a>.
+      </p>
+      <p>
+        Again, this field is optional since we will automatically generate a publication key for you if you do not have one you&apos;d like 
+        to use.
+      </p>
+      <input id="urtak_publication_key" name="urtak_publication_key" type="text" size="40" maxlength="40" value="<?php echo get_option('urtak_publication_key'); ?>" /> 
+
+      <h3><label for="urtak_automatic_post"><?php _e('Include Urtak by Default?'); ?></label></h3>
+      <p>
+        Just like comments, Urtak should be useful on every post. From the Add New / Edit Post screen you&apos;ll have the option to exclude 
+        Urtak on an individual post. We highly recommend you keep this enabled.
+      </p>
+      <input id="urtak_automatic_post" name="urtak_automatic_create" type="checkbox" value="true" <?php echo check_add_urtak(); ?>/> Place an Urtak on each of my posts
+
+      <h3><label for="urtak_automatic_moderation"><?php _e('Community Moderation?'); ?></label></h3>
+      <p>
+        We want Urtak to be very simple for you. Instead of requiring you to approve each and every question, we let the community 
+        determine whether or not a question gets removed through the "Don&apos;t Care" option. The more the button gets hit, the less 
+        frequently the question gets shown until it dissapears entirely. Click <a href="https://urtak.com/faq#moderation" target="_blank">here to learn more</a> about community moderation. 
+      </p>
+      <p>
+        Opting out of community moderation means you&apos;ll either receive emails for each question or can moderate through the Add New / Edit Post interface.
+      </p>
+      <input id="urtak_automatic_moderation" name="urtak_automatic_moderation" type="checkbox" value="true" <?php echo check_moderate_urtak(); ?> /> Instead of sending me emails, let the community moderate for me
+
+      <div id="urtak_development_options" style="display:none;">
+      <h3>Developer Settings</h3>
+
+      You do *not* need to change these settings. This is a convenience for plugin development and testing only.
+
+      <h3>Urtak API Home</h3>
+      <input id="urtak_api_home" name="urtak_api_home" type="text" size="40" maxlength="40" value="<?php echo get_option('urtak_api_home'); ?>" /> 
+
+      <h3>Urtak.com Home</h3>
+      <input id="urtak_home" name="urtak_home" type="text" size="40" maxlength="40" value="<?php echo get_option('urtak_home'); ?>" /> 
+
+      <h3>Widget Javascript URL</h3>
+      <input id="urtak_home" name="urtak_widget_js_url" type="text" size="40" value="<?php echo get_option('urtak_widget_js_url'); ?>" /> 
+
+      <h3>Widget Javascript Protocol</h3>
+      <input id="urtak_home" name="urtak_widget_js_protocol" type="text" size="40" maxlength="5" value="<?php echo get_option('urtak_widget_js_protocol'); ?>" /> 
+
+      </div>
+      <br />
       <a href="#" onclick="jQuery('#urtak_development_options').toggle(); return false;" style="font-size:10px;">toggle development options</a>
-      <input type="submit" class="button-primary" name="submit" value="<?php _e('Save Options &raquo;'); ?>" />
-    </p>
+      <p class="submit" style="float:right;">
+        <input type="submit" class="button-primary" name="submit" value="<?php _e('Save Options &raquo;'); ?>" />
+      </p>
+    </div>
   </form>
 
 <?php
@@ -319,37 +453,49 @@ function update_urtak_question() {
 
 // UI for Question Asking (post pages)
 function urtak_questions_box( $post ) {
+
+  // Query the API for a Questions + Urtak
   $response = urtak_api()->get_urtak_questions( 'post_id' , get_the_id() , array() );
 
-  // Query the API for this Urtak
+  // Successful query
   if($response->success()) {
+    // Capture the questions
     $questions = $response->body['questions']['question'];
+    // This is now explicit, so use the API value
     $check_urtak_automatic_moderation = (($response->body['questions']['urtak']['moderation'] == 'community') ? 'checked' : '');
+
+  // Not found
   } else {
+    // Just blank out an array then
     $questions = array();
-    $check_urtak_automatic_moderation = (get_option('urtak_automatic_moderation') == 'true' ? 'checked' : '');
+    // Use the WordPress default
+    $check_urtak_automatic_moderation = check_moderate_urtak();
   }
 
+  // Note the question count, we want to encourage at least 3 questions per Urtak to get the conversation rolling
   $questions_count = count($questions);
   
+  // The user may explicity ask to hide/show an Urtak
   $show_urtak = get_post_meta( get_the_id() , '_show_urtak' , true );
 
+  // This was explicity set by the User or API
   if($show_urtak == 'show') {
-    // check it off
     $check_add_urtak_to_post = 'checked';
+
+  // Again, explicity set
   } elseif($show_urtak == 'hide') {
-    // don't say nuthin!
     $check_add_urtak_to_post = '';
+
+  // No value, so use the WordPress default
   } else {
-    //  not set, use master default
-    $check_add_urtak_to_post = (get_option('urtak_automatic_create') == 'true') ? 'checked' : '';
+    $check_add_urtak_to_post = check_add_urtak();
   }
 
   // Use nonce for verification
   wp_nonce_field( plugin_basename( __FILE__ ), 'urtak_questions' );
 
-  // The actual fields for data entry
 ?>
+
 <span id='urtak_help'>
   Kick off the conversation by asking a few <em>yes/no</em> questions below
 </span>
@@ -527,6 +673,14 @@ function urtak_update_error_notice() {
   echo "<div id='urtak-notice' class='error'><p><strong>".__('There was a problem updating your Urtak!')."</strong></p></div>";
 }
 
+function check_add_urtak() {
+  return (get_option('urtak_automatic_create') == 'true') ? 'checked' : '';
+}
+
+function check_moderate_urtak() {
+  return (get_option('urtak_automatic_moderation') == 'true') ? 'checked' : '';
+}
+
 // Urtak Question Box CSS
 function urtak_css() {
 ?>
@@ -642,7 +796,7 @@ function urtak_css() {
 }
 
 // Urtak Question Box JS
-function urtak_js() {
+function urtak_post_js() {
 ?>
 <script type='text/javascript'>
   function new_urtak_question() {
@@ -728,6 +882,22 @@ function urtak_js() {
     
   });
 
+</script>
+<?php
+}
+
+// Urtak Configuration Page JS
+function urtak_config_js() {
+?>
+<script type="text/javascript">
+  jQuery(document).ready(function() {
+    jQuery('#get_urtak_keys_popup').click(function(ev) {
+      window.open("<?php echo get_option('urtak_home'); ?>/api_keys?from=wordpress",
+      "Get Your Urtak Account and API Keys","width=800,height=400");
+      ev.preventDefault();
+      return false;
+    });
+  });
 </script>
 <?php
 }
