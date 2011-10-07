@@ -596,10 +596,6 @@ function urtak_questions_box( $post ) {
 <input type='button' class='button-primary' name='ask_question' value='Ask Question' onclick='ask_urtak_question(); return false;'>
 <input type='button' class='button-secondary' name='help' value='Help' id='toggle_urtak_help'>
 
-<span id="urtak_ajax_spinner">
-  <img src="<?php echo esc_url( admin_url( 'images/wpspin_light.gif' ) ); ?>" />
-</span>
-
 <div id='urtak_post_help' style='display:none;'>
   <h4>How to Ask Question</h4>
   <p>
@@ -643,11 +639,6 @@ function check_moderate_urtak() {
 function urtak_css() {
 ?>
 <style type='text/css'>
-  #urtak_ajax_spinner{
-    float:right;
-    display:none;
-  }
-
   .urtak_question{
     clear:both;
     margin:0 0 2px 0;
@@ -656,7 +647,7 @@ function urtak_css() {
   #urtak_question_text {
     font-size: 16px;
     color:#333;
-    margin:5px 0 5px 0px;
+    margin:5px 0;
     line-height:22px;
   }
   .urtak_question_text {
@@ -799,11 +790,12 @@ function urtak_post_js() {
       return false;
     });
     
-    jQuery('#urtak_ajax_spinner').ajaxStart(function(){
-      jQuery(this).show();
+    jQuery('#urtak_question_text').ajaxStart(function(){
+      jQuery(this).css("background", "url(<?php echo esc_url(admin_url('images/wpspin_light.gif')); ?>) no-repeat 99% 50%");
     });
-    jQuery('#urtak_ajax_spinner').ajaxStop(function(){
-      jQuery(this).hide();
+
+    jQuery('#urtak_question_text').ajaxStop(function(){
+      jQuery(this).css("background", "");
     });
     
     jQuery('.urtak_off').live('click', function() {
