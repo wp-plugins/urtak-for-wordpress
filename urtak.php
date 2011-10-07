@@ -1,7 +1,7 @@
 <?php
 /**
  * @package Urtak
- * @version 0.9.1
+ * @version 0.9.2
  */
 
 /*
@@ -9,7 +9,7 @@ Plugin Name: Urtak
 Plugin URI: http://wordpress.org/extend/plugins/urtak/
 Description: Urtak is the best way for your visitors to respond to content. Engage your users, ask and answer questions to create structured conversations and use that to better understand your audience and quite possibly... the world. After activation go to the <a href="plugins.php?page=urtak-config">Urtak configuration</a> page. 
 Author: Kunal Shah
-Version: 0.9.1
+Version: 0.9.2
 Author URI: https://urtak.com/
 */
 
@@ -71,7 +71,7 @@ function urtak_api() {
     'api_key'         => get_option('urtak_api_key'),
     'api_home'        => get_option('urtak_api_home'),
     'urtak_home'      => get_option('urtak_home'),
-    'client_name'     => "Urtak for Wordpress v0.9.1, running on WP ".$wp_version
+    'client_name'     => "Urtak for Wordpress v0.9.2, running on WP ".$wp_version
   );
   
   // Instantiate an Urtak API Wrapper Object
@@ -473,15 +473,7 @@ function urtak_conf() {
 function create_urtak_question() {
   $post_id    = $_POST['post_id'];
   $questions  = array();
-  $moderation = (array_key_exists('moderation', $_POST) ? 'community' : 'publisher');
-
-  // set the basics
-  $urtak = array(
-    'post_id'     => $post_id,
-    'permalink'   => get_permalink($post_id),
-    'title'       => get_the_title($post_id),
-    'moderation'  => $moderation
-  );
+  $moderation = (get_option('urtak_automatic_create') == 'true') ? 'community' : 'publisher';
   
   if($_POST['question_text'] != "") {
     $questions = array(0 => array('text' => $_POST['question_text']));
@@ -494,11 +486,6 @@ function create_urtak_question() {
   if($lookup->success()) {
     $urtak_id = $lookup->body['urtak']['id'];
 
-    // Check to see if moderation settings were changed
-    if($lookup->body['urtak']['moderation'] != $moderation) {
-      $update = urtak_api()->update_urtak('id', array('id' => $urtak_id, 'moderation' => $moderation));
-    }
-
     $response = urtak_api()->create_urtak_questions('id', $urtak_id, $questions);
     if($response->success()) {
       $question_id = array_pop(explode("/", $response->headers["Location"]));
@@ -506,6 +493,14 @@ function create_urtak_question() {
 
   // otherwise, create the Urtak and the question
   } else {
+    // set the basics
+    $urtak = array(
+      'post_id'     => $post_id,
+      'permalink'   => get_permalink($post_id),
+      'title'       => get_the_title($post_id),
+      'moderation'  => $moderation
+    );
+
     $response = urtak_api()->create_urtak($urtak, $questions);
 
     if($response->success()) {
@@ -565,12 +560,12 @@ function urtak_questions_box( $post ) {
   // Successful query
   if($response->success()) {
     // This is now explicit, so use the API value
-    $check_urtak_automatic_moderation = (($response->body['questions']['urtak']['moderation'] == 'community') ? 'checked' : '');
+    $urtak_community_moderation = (($response->body['questions']['urtak']['moderation'] == 'community') ? 'checked' : '');
 
   // Not found
   } else {
     // Use the WordPress default
-    $check_urtak_automatic_moderation = check_moderate_urtak();
+    $urtak_community_moderation = check_moderate_urtak();
   }
 
   // The user may explicity ask to hide/show an Urtak
@@ -578,51 +573,53 @@ function urtak_questions_box( $post ) {
 
   // This was explicity set by the User or API
   if($show_urtak == 'show') {
-    $check_add_urtak_to_post = 'checked';
+    $urtak_enabled = 'checked';
 
   // Again, explicity set
   } elseif($show_urtak == 'hide') {
-    $check_add_urtak_to_post = '';
+    $urtak_enabled = '';
 
   // No value, so use the WordPress default
   } else {
-    $check_add_urtak_to_post = check_add_urtak();
+    $urtak_enabled = check_add_urtak();
   }
 
   // Use nonce for verification
   wp_nonce_field( plugin_basename( __FILE__ ), 'urtak_questions' );
 ?>
 
-<span id='urtak_help'>
-  Kick off the conversation by asking a <em>yes/no</em> question below
-</span>
-
 <?php if((!($response->not_found())) && ($response->failure())) { 
   echo "There was a problem connecting to Urtak ".$response->error();
 } ?>
 
-<div id='urtak_post_buttons'>
-  <input type='button' class='button-secondary' name='more-options' value='Options' id='toggle_urtak_post_options'>
-</div>
-
-<div id='urtak_post_options'>
-  <div id='urtak_post_options_content' style='display:none;'>
-    <div class="urtak_post_option">
-      <input type="checkbox" name="urtak_add_to_post" value="true" <?php echo($check_add_urtak_to_post); ?>> 
-      I want Urtak enabled on this post
-    </div>
-    <div class="urtak_post_option">
-      <input type="checkbox" name="urtak_community_moderation_on_post" value="true" <?php echo($check_urtak_automatic_moderation); ?>> 
-      Let the community moderate questions for me
-    </div>
-  </div>
-</div>
-
-<input type='text' id='urtak_question_text' name='urtak_question_text' value='' size='60' />
+<input type='text' id='urtak_question_text' name='urtak_question_text' placeholder='Write a yes or no question, then click ask' size='60' />
 <input type='button' class='button-primary' name='ask_question' value='Ask Question' onclick='ask_urtak_question(); return false;'>
+<input type='button' class='button-secondary' name='help' value='Help' id='toggle_urtak_help'>
+
 <span id="urtak_ajax_spinner">
-  <img src="<?php echo esc_url( admin_url( 'images/wpspin_light.gif' ) ); ?>" /> Adding Question...
+  <img src="<?php echo esc_url( admin_url( 'images/wpspin_light.gif' ) ); ?>" />
 </span>
+
+<div id='urtak_post_help' style='display:none;'>
+  <h4>How to Ask Question</h4>
+  <p>
+    The more questions your audience answers, the better insight you get. So keep them answering questions by making 
+    each one simple but entertaining. Overly lengthy questions with too much background cause people to quit. Similarly 
+    vague questions can confuse. For a more extensive guide on question asking guidelines, see our <a href="http://urtak.com/faq/#asking" target="_blank">FAQ</a>.
+  </p>
+
+  <h4>Question States</h4>
+  <p>
+    Reject, approve or mark as spam any question by clicking on the state you desire
+  </p>
+  <img src='<?php echo URTAK_IMAGESDIR ?>/qs-approved-inactive.png' width='22' height='22'/> Click to approve this question<br />
+  <img src='<?php echo URTAK_IMAGESDIR ?>/qs-rejected-inactive.png' width='22' height='22'/> Click to reject this question<br />
+  <img src='<?php echo URTAK_IMAGESDIR ?>/qs-spam-inactive.png' width='22' height='22'/> Click to mark this question as spam<br />
+
+  <img src='<?php echo URTAK_IMAGESDIR ?>/qs-approved-active.png' width='22' height='22'/> This question was approved <br />
+  <img src='<?php echo URTAK_IMAGESDIR ?>/qs-rejected-active.png' width='22' height='22'/> This question was rejected<br />
+  <img src='<?php echo URTAK_IMAGESDIR ?>/qs-spam-active.png' width='22' height='22'/> This question was marked as spam<br />
+</div>
 
 <h4 id="urtak_recent_questions_title">Recently Asked Questions</h4>
 <div id="urtak_recent_questions"></div>
@@ -646,13 +643,6 @@ function check_moderate_urtak() {
 function urtak_css() {
 ?>
 <style type='text/css'>
-  #urtak_help, .urtak_post_option {
-    font-size: 13px;
-  }
-  .urtak_post_option{
-    margin:0 0 5px 0;
-  }
-  
   #urtak_ajax_spinner{
     float:right;
     display:none;
@@ -661,13 +651,6 @@ function urtak_css() {
   .urtak_question{
     clear:both;
     margin:0 0 2px 0;
-  }
-
-  #urtak_post_buttons {
-    margin: 0 10px 5px 0;
-    font-size: 14px;
-    text-decoration:none;
-    float:right;
   }
 
   #urtak_question_text {
@@ -725,7 +708,7 @@ function urtak_css() {
     cursor: pointer;
   }
 
-  #urtak_post_options, #urtak_post_options_content {
+  #urtak_post_help {
     padding-top: 5px; 
     margin: 0;
   }
@@ -806,10 +789,13 @@ function urtak_post_js() {
       )
     );
   }
+  
+  /*! http://mths.be/placeholder v1.8.5 by @mathias */
+  (function(g,a,$){var f='placeholder' in a.createElement('input'),b='placeholder' in a.createElement('textarea');if(f&&b){$.fn.placeholder=function(){return this};$.fn.placeholder.input=$.fn.placeholder.textarea=true}else{$.fn.placeholder=function(){return this.filter((f?'textarea':':input')+'[placeholder]').bind('focus.placeholder',c).bind('blur.placeholder',e).trigger('blur.placeholder').end()};$.fn.placeholder.input=f;$.fn.placeholder.textarea=b;$(function(){$('form').bind('submit.placeholder',function(){var h=$('.placeholder',this).each(c);setTimeout(function(){h.each(e)},10)})});$(g).bind('unload.placeholder',function(){$('.placeholder').val('')})}function d(i){var h={},j=/^jQuery\d+$/;$.each(i.attributes,function(l,k){if(k.specified&&!j.test(k.name)){h[k.name]=k.value}});return h}function c(){var h=$(this);if(h.val()===h.attr('placeholder')&&h.hasClass('placeholder')){if(h.data('placeholder-password')){h.hide().next().show().focus().attr('id',h.removeAttr('id').data('placeholder-id'))}else{h.val('').removeClass('placeholder')}}}function e(){var l,k=$(this),h=k,j=this.id;if(k.val()===''){if(k.is(':password')){if(!k.data('placeholder-textinput')){try{l=k.clone().attr({type:'text'})}catch(i){l=$('<input>').attr($.extend(d(this),{type:'text'}))}l.removeAttr('name').data('placeholder-password',true).data('placeholder-id',j).bind('focus.placeholder',c);k.data('placeholder-textinput',l).data('placeholder-id',j).before(l)}k=k.removeAttr('id').hide().prev().attr('id',j).show()}k.addClass('placeholder').val(k.attr('placeholder'))}else{k.removeClass('placeholder')}}}(this,document,jQuery));
 
   jQuery(document).ready(function() {
-    jQuery('#toggle_urtak_post_options').click(function() {
-      jQuery('#urtak_post_options_content').fadeToggle('fast');
+    jQuery('#toggle_urtak_help').click(function() {
+      jQuery('#urtak_post_help').fadeToggle('fast');
       return false;
     });
     

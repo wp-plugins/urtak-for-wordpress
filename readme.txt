@@ -24,6 +24,6 @@ Requires PHP-cURL
 
 == Changelog ==
 
-= 0.9.1 = 
+= 0.9.2 = 
 * Buildout
 * Bundled API Client
