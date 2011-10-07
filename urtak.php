@@ -1,7 +1,7 @@
 <?php
 /**
  * @package Urtak
- * @version 0.9.2
+ * @version 0.9.3
  */
 
 /*
@@ -9,7 +9,7 @@ Plugin Name: Urtak
 Plugin URI: http://wordpress.org/extend/plugins/urtak/
 Description: Urtak is the best way for your visitors to respond to content. Engage your users, ask and answer questions to create structured conversations and use that to better understand your audience and quite possibly... the world. After activation go to the <a href="plugins.php?page=urtak-config">Urtak configuration</a> page. 
 Author: Kunal Shah
-Version: 0.9.2
+Version: 0.9.3
 Author URI: https://urtak.com/
 */
 
@@ -71,7 +71,7 @@ function urtak_api() {
     'api_key'         => get_option('urtak_api_key'),
     'api_home'        => get_option('urtak_api_home'),
     'urtak_home'      => get_option('urtak_home'),
-    'client_name'     => "Urtak for Wordpress v0.9.2, running on WP ".$wp_version
+    'client_name'     => "Urtak for Wordpress v0.9.3, running on WP ".$wp_version
   );
   
   // Instantiate an Urtak API Wrapper Object
