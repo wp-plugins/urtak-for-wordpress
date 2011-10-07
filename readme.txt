@@ -8,15 +8,20 @@ License: MIT
 
 == Description ==
 
-Urtak gathers your users’ opinions by enabling them to ask and answer questions about your content. Letting your audience actively contribute by generating content with questions results in spending more time on site and sharing your content with their friends.
+[Urtak](https://urtak.com?from=wordpress_plugin) gathers your users’ opinions by enabling them to ask and answer questions about your content. Letting your audience actively contribute by generating content with questions results in spending more time on site and sharing your content with their friends.
 
-Features:
+= Features =
 
-*   Powered by the people: By letting everyone ask questions, you’ll discover answers to questions you never thought to ask. 
-*   Structured engagement: Presented as a series of simple Yes/No questions, Urtak provides instant data and organizes opinions into a useful resource.
-*   Easy moderation: Filter spam and bad questions out automatically with community moderation, or approve them manually without leaving the WP dashboard.
-*   Ask the right questions: Our algorithm prioritizes questions so that the most cared about ones are presented first.
-*   Back-end analytics: All the information generated is structured and easy to parse. The  results are immediately available and stored at Urtak.com.
+*   Powered by the people
+    By letting everyone ask questions, you’ll discover answers to questions you never thought to ask. 
+*   Structured engagement
+    Presented as a series of simple Yes/No questions, Urtak provides instant data and organizes opinions into a useful resource.
+*   Easy moderation
+    Filter spam and bad questions out automatically with community moderation, or approve them manually without leaving the WP dashboard.
+*   Ask the right questions
+    Our algorithm prioritizes questions so that the most cared about ones are presented first.
+*   Back-end analytics
+    All the information generated is structured and easy to parse. The results are immediately available and stored at Urtak.com.
 
 == Installation ==
 
@@ -28,7 +33,9 @@ Using the Plugin:
 
 When you create a new post, a new Urtak is automatically generated that can be moderated at anytime within the Add New/Edit Post interface. It is simple to get started. Simply enter a few questions into the question box and you’re ready to go. The more questions your audience answers, the better insight you get and you can keep them answering by making each question simple, but entertaining. Return to the Edit Post interface at anytime to moderate questions by approving, rejecting or marking them as spam. To view results, either visit the widget on your published page or your dashboard on Urtak.com where all of your data is stored and organized.
 
-== FAQ ==
+For more information on settings and features, [visit the Frequently Asked Questions](http://wordpress.org/extend/plugins/urtak-for-wordpress/faq/).
+
+== Frequently Asked Questions ==
 
 *   What is an Urtak?
 
