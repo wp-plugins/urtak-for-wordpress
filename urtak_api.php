@@ -2,7 +2,7 @@
 /**
  * Urtak v1 API Wrapper for PHP
  * --------------------------------
- * @version:        0.1
+ * @version:        0.9.1
  * @author:         Kunal Shah <kunal@urtak.com>
  * @creation date:  September 08, 2011
  * @link:           https://urtak.com/dev
@@ -14,10 +14,10 @@ class Urtak {
   protected $publication_key    = ''; // Publication Key
   protected $api_key            = ''; // API Key
   
-  protected $urtak_home   = 'https://urtak.com';    // Home Url
+  protected $urtak_home   = 'https://urtak.com';      // Home Url
   protected $api_home     = 'https://urtak.com/api';  // API Url
   protected $api_format   = 'JSON';                   // XML or JSON
-  protected $client_name  = 'Urtak API Wrapper for PHP v0.1';
+  protected $client_name  = 'Urtak API Wrapper for PHP v0.9.1';
 
   public function __construct($config = array())
   {
@@ -204,6 +204,24 @@ class Urtak {
     return $this->curl_request($path, 'GET', array());
   }
 
+  /** Retrieve a Question on an Urtak by Urtak ID, post id, or post permalink and Question ID
+   * 
+   * @access  @public
+   * @params  property ('id', 'post_id', 'permalink') and the value ('1', '3-my-article', 'http://foo.com/my-great-content)
+   * @return  UrtakResponse
+   */
+  public function get_urtak_question($property, $value, $question_id) {
+    if($property == 'id') { 
+      $path = '/urtaks/'.$value.'/questions/'.$question_id;
+    } elseif($property == 'post_id') {
+      $path = '/urtaks/post/'.$value.'/questions/'.$question_id;
+    } elseif($property == 'permalink') {
+      $path = '/urtaks/permalink/'.$value.'/questions/'.$question_id;
+    }
+
+    return $this->curl_request($path, 'GET', array());
+  }
+
   /** Create 1 or More Questions on an Urtak by Urtak ID, post id, or post permalink
    * 
    * @access  @public
@@ -348,12 +366,13 @@ class Urtak {
 
     curl_setopt($curl_handle, CURLOPT_USERAGENT, $this->client_name);
     curl_setopt($curl_handle, CURLOPT_CONNECTTIMEOUT, 2);
-    curl_setopt($curl_handle, CURLOPT_RETURNTRANSFER, 1);
+    curl_setopt($curl_handle, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($curl_handle, CURLOPT_ENCODING, "");
-    curl_setopt($curl_handle, CURLOPT_CONNECTTIMEOUT, 5 );
-    curl_setopt($curl_handle, CURLOPT_TIMEOUT, 5 );
+    curl_setopt($curl_handle, CURLOPT_CONNECTTIMEOUT, 5);
+    curl_setopt($curl_handle, CURLOPT_TIMEOUT, 5);
     curl_setopt($curl_handle, CURLOPT_SSL_VERIFYHOST, 2);
-    curl_setopt($curl_handle, CURLOPT_SSL_VERIFYPEER, true );
+    curl_setopt($curl_handle, CURLOPT_SSL_VERIFYPEER, true);
+    curl_setopt($curl_handle, CURLOPT_HEADER, true);
 
     $headers[] = $method." ".$path." HTTP/1.0";
     $headers[] = "Host: ".preg_replace('/https?:\/\//', '', $this->urtak_home);
@@ -399,25 +418,59 @@ class Urtak {
     curl_close($curl_handle);
     
     if($this->api_format == "JSON") {
-      $body = json_decode($response, true);
-      return new UrtakResponse($body, $code, 'JSON');
+      return new UrtakResponse($response, $code, 'JSON');
     } elseif($this->api_format == "XML") {
-      $body = new SimpleXMLElement($response);
-      return new UrtakResponse($body, $code, 'XML');
+      return new UrtakResponse($response, $code, 'XML');
     }
   }
 }
 
 class UrtakResponse {
-  public $body    = '';     // Raw Response Body
-  public $code    = 0;      // HTTP Status Code
-  public $format  = 'JSON';  // Set by Urtak Class
+  public $raw     = '';       // Raw Response
+  public $raw_body= '';       // Raw Response
+  public $body    = '{}';     // Parsed Response Body
+  public $headers = array();  // Headers available as an Array
+  public $code    = 0;        // HTTP Status Code
+  public $format  = 'JSON';   // Set by Urtak Class
 
-  public function __construct($body, $code, $format)
+  public function __construct($raw, $code, $format)
   {
-    $this->body   = $body;
+    // this parsing code is Copyright (c) 2008 Sean Huber - shuber@huberry.com
+    // available under the MIT License at https://github.com/shuber/curl
+
+    # Headers regex
+    $this->raw    = $raw;
     $this->code   = $code;
     $this->format = $format;
+
+    $pattern = '#HTTP/\d\.\d.*?$.*?\r\n\r\n#ims';
+
+    # Extract headers from response
+    preg_match_all($pattern, $raw, $matches);
+    $headers_string = array_pop($matches[0]);
+    $headers = explode("\r\n", str_replace("\r\n\r\n", '', $headers_string));
+
+    # Remove headers from the response body
+    $this->raw_body = str_replace($headers_string, '', $raw);
+
+    # Extract the version and status from the first header
+    $version_and_status = array_shift($headers);
+    preg_match('#HTTP/(\d\.\d)\s(\d\d\d)\s(.*)#', $version_and_status, $matches);
+    $this->headers['Http-Version'] = $matches[1];
+    $this->headers['Status-Code'] = $matches[2];
+    $this->headers['Status'] = $matches[2].' '.$matches[3];
+
+    # Convert headers into an associative array
+    foreach ($headers as $header) {
+      preg_match('#(.*?)\:\s(.*)#', $header, $matches);
+      $this->headers[$matches[1]] = $matches[2];
+    }
+
+    if($this->format == 'JSON') {
+      $this->body = json_decode($this->raw_body, true);
+    } else {
+      $this->body = new SimpleXMLElement($this->raw_body);
+    }
   }
   
   /**

@@ -1,7 +1,7 @@
 <?php
 /**
  * @package Urtak
- * @version 0.0.1
+ * @version 0.9.1
  */
 
 /*
@@ -9,7 +9,7 @@ Plugin Name: Urtak
 Plugin URI: http://wordpress.org/extend/plugins/urtak/
 Description: Urtak is the best way for your visitors to respond to content. Engage your users, ask and answer questions to create structured conversations and use that to better understand your audience and quite possibly... the world. After activation go to the <a href="plugins.php?page=urtak-config">Urtak configuration</a> page. 
 Author: Kunal Shah
-Version: 0.9.0
+Version: 0.9.1
 Author URI: https://urtak.com/
 */
 
@@ -27,14 +27,15 @@ add_action( 'admin_init', 'urtak_menus', 1);
 // Add a link to the configuration within the plugins tab
 add_action( 'admin_menu', 'urtak_config_page' );
 
+// Add a filter to display the _Urtak Widget_ (if the embed option is not manual)
+add_filter( 'the_content', 'add_urtak_widget' );
+
 // Add a link to the configuration within the plugins link
 add_filter( 'plugin_action_links', 'urtak_plugin_action_links', 10, 2 );
 
 // Expose API calls from the New/Edit Post Page
 add_action('wp_ajax_update_urtak_question', 'update_urtak_question');
-
-// After a post is saved, create and populate the urtak
-add_action( 'save_post', 'urtak_create_and_add_questions' );
+add_action('wp_ajax_create_urtak_question', 'create_urtak_question');
 
 // Global CSS
 add_action( 'admin_head', 'urtak_css' );
@@ -70,7 +71,7 @@ function urtak_api() {
     'api_key'         => get_option('urtak_api_key'),
     'api_home'        => get_option('urtak_api_home'),
     'urtak_home'      => get_option('urtak_home'),
-    'client_name'     => "Urtak for Wordpress v0.1, running on WP ".$wp_version
+    'client_name'     => "Urtak for Wordpress v0.9.1, running on WP ".$wp_version
   );
   
   // Instantiate an Urtak API Wrapper Object
@@ -85,7 +86,7 @@ function urtak_activate() {
     update_option( 'urtak_api_key', '' );
   }
   if ( !get_option('urtak_api_home') ) {
-    update_option( 'urtak_api_home', 'https://api.urtak.com' );
+    update_option( 'urtak_api_home', 'https://urtak.com/api' );
   }
   if ( !get_option('urtak_home') ) {
     update_option( 'urtak_home', 'https://urtak.com' );
@@ -95,6 +96,9 @@ function urtak_activate() {
   }
   if( !get_option('urtak_automatic_moderation') ) {
     update_option('urtak_automatic_moderation', 'true');
+  }
+  if( !get_option('urtak_embed') ) {
+    update_option('urtak_embed', 'after_post');
   }
   if( !get_option('urtak_widget_js_url') ) {
     update_option('urtak_widget_js_url', 'https://d39v39m55yawr.cloudfront.net/assets/clr.js');
@@ -113,6 +117,7 @@ function urtak_deactivate() {
   delete_option('urtak_home');
   delete_option('urtak_automatic_create');
   delete_option('urtak_automatic_moderation');
+  delete_option('urtak_embed');
   delete_option('urtak_widget_js_url');
   delete_option('urtak_widget_js_protocol');
   delete_option('urtak_email');
@@ -178,23 +183,44 @@ function urtak_plugin_action_links( $links, $file ) {
 
 // WIDGET!
 function make_urtak_widget() {
-  if (is_single()) {
-    // unless explicitly hidden, make the widget
-    if(get_post_meta( get_the_id() , '_show_urtak' , true ) != 'hide') {
-?>
-  <script src="<?php echo get_option('urtak_widget_js_url'); ?>" type="text/javascript"></script>
-  <div
-    data-auto-urtak-key       = "<?php echo get_option('urtak_publication_key'); ?>"
-    data-post-title           = "<?php echo the_title(); ?>"
-    data-post-id              = "<?php echo the_ID(); ?>"
-    data-post-permalink       = "<?php echo the_permalink(); ?>"
-    data-post-created         = "<?php echo get_the_date(); ?>"
-    data-auto-urtak-protocol  = "<?php echo get_option('urtak_widget_js_protocol'); ?>"
-  >
-  </div>
-<?php
-    };
-  };
+  if(should_show_widget()) {
+    echo(urtak_widget());
+  }
+}
+
+function add_urtak_widget( $content ) {
+  if((get_option('urtak_embed') == 'after_post') && should_show_widget()) {
+    return $content.urtak_widget();
+  } else {
+    return $content;
+  }
+}
+
+function should_show_widget() {
+  // to show the widget, this must be a single post.
+  // The widget should not be explictly hidden, or if there is no post-meta, then check the default (handles legacy)
+  $meta_value = get_post_meta(get_the_id(),'_show_urtak',true);
+  
+  if ((is_single()) && (($meta_value == 'show')) || (($meta_value == '') && (get_option('urtak_automatic_create') == 'true'))) {
+    return true;
+  } else {
+    return false;
+  }
+}
+
+function urtak_widget() {
+  $widget = "";
+  $widget.= "<script src=".get_option('urtak_widget_js_url')." type='text/javascript'></script>\n";
+  $widget.= "<div\n";
+  $widget.= "data-auto-urtak-key       = '".get_option('urtak_publication_key')."'\n";
+  $widget.= "data-post-title           = '".get_the_title()."'\n";
+  $widget.= "data-post-id              = '".get_the_ID()."'\n";
+  $widget.= "data-post-permalink       = '".get_permalink()."'\n";
+  $widget.= "data-post-created         = '".get_the_date()."'\n";
+  $widget.= "data-auto-urtak-protocol  = '".get_option('urtak_widget_js_protocol')."'\n";
+  $widget.= ">";
+  $widget.= "</div>";
+  return $widget;
 }
 
 // PAGES
@@ -233,6 +259,8 @@ function urtak_conf() {
     } else {
       update_option( 'urtak_automatic_moderation', 'false' );
     };
+
+    update_option( 'urtak_embed', $_POST['urtak_embed'] );
 
     // --------------------------------------------------------------------
     // For Urtak.com Development Staff
@@ -308,7 +336,7 @@ function urtak_conf() {
   <div style="margin: 0 0 0 20px; font-size:16px; width:600px; line-height:20px;" class="message">
     <?php
       if (isset($_POST['submit'])) {
-        echo("settings updated... now let&apos;s see if we can connect to Urtak<br /><br />");
+        echo("<span style='font-size:13px;'>saved your settings... now let&apos;s make sure everything works...</span><br /><br />");
 
         if(isset($test_response)) {
           if($test_response->success()) {
@@ -317,14 +345,16 @@ function urtak_conf() {
             echo "<span style='color:red; font-weight:bold;'>Error! ".$test_response->error()."</span>";
           }
         } else {
-          echo "<span style='color:red; font-weight:bold;'>We couldn't connect you to Urtak!</span><br />";
           if(isset($publication_response)) {
+            echo "<span style='color:red; font-weight:bold;'>Error setting up your publication!</span><br />";
             echo $publication_response->error();
           } else {
             if(get_option('urtak_email') == "") {
+              echo "<span style='color:red; font-weight:bold;'>Enter your email address</span><br />";
               echo "Please enter your email address to proceed. If you already have an Urtak account, use the email address you registered with.<br /><br />";
             } else {
-              echo "It appears that an Urtak account is already associated with this email address.<br /><br />";
+              echo "<span style='color:red; font-weight:bold;'>Hello old friend, get your keys!</span><br />";
+              echo "Looks like you already have an account with Urtak.<br />";
             }
             echo "<a href='".get_option('urtak_home')."/api_keys' id='get_urtak_keys_popup'>Click here to sign into your account</a> and get your keys.";
           }
@@ -347,10 +377,9 @@ function urtak_conf() {
     <h3><label for="urtak_email"><?php _e('Email Address'); ?></label></h3>
     <input id="urtak_email" name="urtak_email" type="text" size="40" value="<?php echo get_option('urtak_email') ?>" /> 
 
-    <h3><label for="urtak_api_key"><?php _e('API Key'); ?></label></h3>
+    <h3><label for="urtak_api_key"><?php _e('API Key (optional)'); ?></label></h3>
     <p>
-      For security, all messages from the admin panel to Urtak are transmitted over SSL and further authenticated with your 
-      API Key. Treat it like a password, don&apos;t share it or make it public!
+      If you have one, you can get it here. Otherwise we&apos;ll create one for you.
     </p>
     <input id="urtak_api_key" name="urtak_api_key" type="text" size="40" maxlength="40" value="<?php echo get_option('urtak_api_key'); ?>" /> 
 
@@ -367,9 +396,25 @@ function urtak_conf() {
         You do not need to set anything below. We will automatically create your publication key if you do not have one you&apos;d like to use.
       </p>
 
+      <h3><label for="urtak_embed"><?php _e('Embedding Options'); ?></label></h3>
+      <p>Choose where you&apos;d like to place the widget.</p>
+      <input style="vertical-align:baseline;" name="urtak_embed" type="radio" value="after_post" <?php if(get_option('urtak_embed') == 'after_post') { echo("checked='checked'"); } ?>/> 
+      <span style="font-size:14px;padding:5px;">After My Post</span><br />
+      <p>The Urtak widget will be placed right after your content</p>
+
+      <input style="vertical-align:baseline;" name="urtak_embed" type="radio" value="manual" <?php if(get_option('urtak_embed') == 'manual') { echo("checked='checked'"); } ?>/> 
+      <span style="font-size:14px;padding:5px;">Widget / Manually</span><br />
+      <p>
+        If your WordPress theme is widgetized, you can drag and drop Urtak into an area on your template.
+        Or, call the following php function in your template:
+        <pre>
+<?php echo(htmlspecialchars('<?php make_urtak_widget(); ?>')); ?>
+        </pre>
+      </p>
+
       <h3><label for="urtak_publication_key"><?php _e('Publication Key'); ?></label></h3>
       <p>
-        Since you can use Urtak on your WordPress as well as other <a href="https://developer.urtak.com/platforms" target="_blank">platforms</a>, you&apos;ll need a publication key for each so we know how to store your urtaks when you 
+        Since you can use Urtak on your WordPress as well as other <a href="http://developer.urtak.com/#platforms" target="_blank">platforms</a>, you&apos;ll need a publication key for each so we know how to store your urtaks when you 
         visit the <a href="https://urtak.com/dashboard" target="_blank">dashboard</a>.
       </p>
       <p>
@@ -425,6 +470,66 @@ function urtak_conf() {
 <?php
 }
 
+function create_urtak_question() {
+  $post_id    = $_POST['post_id'];
+  $questions  = array();
+  $moderation = (array_key_exists('moderation', $_POST) ? 'community' : 'publisher');
+
+  // set the basics
+  $urtak = array(
+    'post_id'     => $post_id,
+    'permalink'   => get_permalink($post_id),
+    'title'       => get_the_title($post_id),
+    'moderation'  => $moderation
+  );
+  
+  if($_POST['question_text'] != "") {
+    $questions = array(0 => array('text' => $_POST['question_text']));
+  }
+
+  // Don't trust the WP post meta, always do an API call to see if an Urtak already exists
+  $lookup = urtak_api()->get_urtak( 'post_id' , $post_id , array() );
+  
+  // if an Urtak exists, just create the question
+  if($lookup->success()) {
+    $urtak_id = $lookup->body['urtak']['id'];
+
+    // Check to see if moderation settings were changed
+    if($lookup->body['urtak']['moderation'] != $moderation) {
+      $update = urtak_api()->update_urtak('id', array('id' => $urtak_id, 'moderation' => $moderation));
+    }
+
+    $response = urtak_api()->create_urtak_questions('id', $urtak_id, $questions);
+    if($response->success()) {
+      $question_id = array_pop(explode("/", $response->headers["Location"]));
+    }
+
+  // otherwise, create the Urtak and the question
+  } else {
+    $response = urtak_api()->create_urtak($urtak, $questions);
+
+    if($response->success()) {
+      $question    = array_pop(array_pop($response->body["urtak"]["questions"]));
+      $urtak_id    = array_pop(explode("/", $response->headers["Location"]));
+      $question_id = $question['id'];
+    }
+  }
+  
+  if(isset($question_id)) {
+    // Set this key so the widget code is displayed explicitly
+    update_post_meta( $post_id, '_show_urtak' , 'show' );
+  
+    // Do a third lookup for the question itself and return that JSON
+    echo urtak_api()->get_urtak_question( 'id' , $urtak_id , $question_id )->raw_body;
+  
+  } else {
+    echo $response->raw_body;
+  }
+  
+  // this is (silly, but) required to return a proper result
+  die(); 
+}
+
 function update_urtak_question() {
   $action   = $_POST['status'];
   $post_id  = $_POST['post_id'];
@@ -459,22 +564,15 @@ function urtak_questions_box( $post ) {
 
   // Successful query
   if($response->success()) {
-    // Capture the questions
-    $questions = $response->body['questions']['question'];
     // This is now explicit, so use the API value
     $check_urtak_automatic_moderation = (($response->body['questions']['urtak']['moderation'] == 'community') ? 'checked' : '');
 
   // Not found
   } else {
-    // Just blank out an array then
-    $questions = array();
     // Use the WordPress default
     $check_urtak_automatic_moderation = check_moderate_urtak();
   }
 
-  // Note the question count, we want to encourage at least 3 questions per Urtak to get the conversation rolling
-  $questions_count = count($questions);
-  
   // The user may explicity ask to hide/show an Urtak
   $show_urtak = get_post_meta( get_the_id() , '_show_urtak' , true );
 
@@ -493,20 +591,18 @@ function urtak_questions_box( $post ) {
 
   // Use nonce for verification
   wp_nonce_field( plugin_basename( __FILE__ ), 'urtak_questions' );
-
 ?>
 
 <span id='urtak_help'>
-  Kick off the conversation by asking a few <em>yes/no</em> questions below
+  Kick off the conversation by asking a <em>yes/no</em> question below
 </span>
 
 <?php if((!($response->not_found())) && ($response->failure())) { 
-  echo "Urtak Error: ". $response->error();
+  echo "There was a problem connecting to Urtak ".$response->error();
 } ?>
 
 <div id='urtak_post_buttons'>
-  <input type='button' class='button-secondary' name='more-options' value='More Options' id='toggle_urtak_post_options_link'>
-  <input type='button' class='button-primary' name='new_question' value='Add Question' onclick='new_urtak_question(); return false;'>
+  <input type='button' class='button-secondary' name='more-options' value='Options' id='toggle_urtak_post_options'>
 </div>
 
 <div id='urtak_post_options'>
@@ -522,155 +618,20 @@ function urtak_questions_box( $post ) {
   </div>
 </div>
 
-<div id='urtak_questions_holder'>
-<?php if($questions_count < 3) { ?>
-  <div class='urtak_question'>
-  <input type='text' class='urtak_question_input' name='urtak_question[][text]' value='' size='60' /><input type='button' class='button-secondary' name='remove_question' value='remove' onclick='remove_urtak_question(this); return false;'>
-  </div>
-<?php } ?>
-</div>
+<input type='text' id='urtak_question_text' name='urtak_question_text' value='' size='60' />
+<input type='button' class='button-primary' name='ask_question' value='Ask Question' onclick='ask_urtak_question(); return false;'>
+<span id="urtak_ajax_spinner">
+  <img src="<?php echo esc_url( admin_url( 'images/wpspin_light.gif' ) ); ?>" /> Adding Question...
+</span>
 
-<?php if($questions_count > 0) { ?>
-  <div id="urtak_recent_questions">
-    <div id="urtak_ajax_spinner"><img src="<?php echo esc_url( admin_url( 'images/wpspin_light.gif' ) ); ?>" /></div>
-    <h4 id="urtak_recent_questions_title">Recently Asked Questions</h4>
-    <?php foreach ( $questions as $question ) { ?>
-      <div class='urtak_question' id='urtak-question-<?php echo $question["id"]; ?>'>
-        <div class="urtak_approved <?php echo(($question["state"] == 'approved') ? 'urtak_on' : 'urtak_off'); ?>" data-action='approve'></div>
-        <div class="urtak_rejected <?php echo(($question["state"] == 'rejected') ? 'urtak_on' : 'urtak_off'); ?>" data-action='reject'></div>
-        <div class="urtak_spam <?php echo(($question["state"] == 'spam') ? 'urtak_on' : 'urtak_off'); ?>" data-action='mark_as_spam'></div>
-        <span class='urtak_question_text'><?php echo $question["text"]; ?></span>
-      </div>
-    <?php } ?>
-  </div>
-<?php } ?>
+<h4 id="urtak_recent_questions_title">Recently Asked Questions</h4>
+<div id="urtak_recent_questions"></div>
+
+<script type="text/javascript">
+  initialize_urtak_questions(<?php echo($response->raw_body)?>);
+</script>
 
 <?php
-}
-
-// Backend for Question Asking (post pages)
-function urtak_create_and_add_questions( $post_id ) {
-  global $urtak_already_executed;
-  if($urtak_already_executed==1) {
-    return;
-  }
-  
-  // verify if this is an auto save routine. 
-  // If it is our form has not been submitted, so we dont want to do anything
-  if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) 
-      return;
-
-  // verify this came from the our screen and with proper authorization,
-  // because save_post can be triggered at other times
-  // if ( isset( $_POST['urtak_questions'] ) && !( wp_verify_nonce( $_POST['urtak_questions'] )) )
-
-  // Check permissions
-  if ( !(isset( $_POST['post_type']) )) {
-    return;
-  }
-  
-  if ( isset( $_POST['post_type'] ) && !('post' == $_POST['post_type'])) {
-    return;
-  }
-
-  // interpret the moderation setting
-  $moderation = (array_key_exists('urtak_community_moderation_on_post', $_POST) ? 'community' : 'publisher');
-  
-  // set the basics
-  $urtak = array(
-    'post_id'     => get_the_id(),
-    'permalink'   => get_permalink(),
-    'title'       => get_the_title(),
-    'created_at'  => get_the_date(),
-    'moderation'  => $moderation
-  );
-  
-  // if the key doesn't exist, we'll just have a blank array
-  $questions = array();
-  if (array_key_exists('urtak_question', $_POST)) {
-    // but if it does, remove empties
-    foreach ($_POST['urtak_question'] as $key => $value) {
-      if(trim($value['text']) == "") {
-        unset($_POST['urtak_question'][$key]);
-      }
-    }
-
-    // empties were unset, so we can use this again
-    $questions = $_POST['urtak_question'];
-  }
-
-  if (array_key_exists('urtak_add_to_post', $_POST)) {
-    // don't trust the WP post meta, always do an API call to see if urtak already exists
-    $lookup_response = urtak_api()->get_urtak( 'post_id' , get_the_id() , array() );
-
-    if($lookup_response->success()) {
-      // Sweet! Now make a call if settings were updated, or new questions were asked
-      
-      // for now, this is the only option they can change
-      if($lookup_response->body['urtak']['moderation'] != $moderation) {
-        // change it!
-        $update_response = urtak_api()->update_urtak('id', array('id' => $lookup_response->body['urtak']['id'], 'moderation' => $moderation));
-
-        // need to combine this with the question create (below) somehow...
-        if($update_response->success()) {
-          add_action('admin_notices', 'urtak_updated_notice');
-        } else {
-          add_action('admin_notices', 'urtak_update_error_notice');
-        }
-      }
-      
-      // don't make a call unless some questions are being added
-      if(count($questions) > 0) {
-        // oh, there are? indeed!
-        $create_response = urtak_api()->create_urtak_questions('id', $lookup_response->body['urtak']['id'], $questions);
-
-        // need to combine this with the urtak update somehow...
-        if($create_response->success()) {
-          add_action('admin_notices', 'urtak_updated_notice');
-        } else {
-          add_action('admin_notices', 'urtak_update_error_notice');
-        }
-      }
-
-    } else {
-      // Oh Snap! Okay, no problem, lets make one
-      $create_response = urtak_api()->create_urtak($urtak, $questions);
-
-      if($create_response->success()) {
-        add_action('admin_notices', 'urtak_created_notice');
-      } else {
-        add_action('admin_notices', 'urtak_creation_error_notice');
-      }
-    }
-
-    // finally, set this key so the widget code is displayed
-    update_post_meta( get_the_id(), '_show_urtak' , 'show' );
-
-  } else {
-    // just leave it at this, hide the widget code, there is no need 
-    // to destroy one if it already exists, etc.
-    // 
-    // note - this WP function overwrites the existing key
-    update_post_meta( get_the_id(), '_show_urtak' , 'hide' );
-  };
-
-  $urtak_already_executed = 1;
-}
-
-function urtak_created_notice() {
-  echo "<div id='urtak-notice' class='updated fade'><p><strong>".__('Urtak Created.')."</strong></p></div>";
-}
-
-function urtak_creation_error_notice() {
-  echo "<div id='urtak-notice' class='error'><p><strong>".__('There was a problem creating your Urtak!')."</strong></p></div>";
-}
-
-function urtak_updated_notice() {
-  echo "<div id='urtak-notice' class='updated fade'><p><strong>".__('Urtak Updated.')."</strong></p></div>";
-}
-
-function urtak_update_error_notice() {
-  echo "<div id='urtak-notice' class='error'><p><strong>".__('There was a problem updating your Urtak!')."</strong></p></div>";
 }
 
 function check_add_urtak() {
@@ -691,9 +652,6 @@ function urtak_css() {
   .urtak_post_option{
     margin:0 0 5px 0;
   }
-
-  .urtak_question_input {
-  }
   
   #urtak_ajax_spinner{
     float:right;
@@ -705,16 +663,6 @@ function urtak_css() {
     margin:0 0 2px 0;
   }
 
-  .urtak_remove {
-    float:right;
-    vertical-align:middle;
-  }
-
-  #urtak_key {
-    font-family: 'Courier New', Courier, mono;
-    font-size: 16px;
-  }
-
   #urtak_post_buttons {
     margin: 0 10px 5px 0;
     font-size: 14px;
@@ -722,20 +670,16 @@ function urtak_css() {
     float:right;
   }
 
-  .urtak_question_action, .urtak_question_action a, .urtak_question_action img {
-    text-decoration:none;
-    border:0;
+  #urtak_question_text {
+    font-size: 16px;
+    color:#333;
+    margin:5px 0 5px 0px;
+    line-height:22px;
   }
-
-  #urtak_questions_holder{
-    clear:both;
-    margin-right:20px;
-  }
-
   .urtak_question_text {
     font-size: 13px;
     color:#333;
-    margin:5px 0 5px 4px;
+    margin:5px 0 5px 5px;
     line-height:22px;
   }
   
@@ -785,12 +729,6 @@ function urtak_css() {
     padding-top: 5px; 
     margin: 0;
   }
-
-  #toggle_urtak_post_options_link, #toggle_urtak_post_options_link a{
-    font-size:11px;
-    font-weight:bold;
-    text-decoration:none;
-  }
 </style>
 <?php
 }
@@ -799,50 +737,78 @@ function urtak_css() {
 function urtak_post_js() {
 ?>
 <script type='text/javascript'>
-  function new_urtak_question() {
-    // grab all questions
-    var questions_holder   = document.getElementById('urtak_questions_holder');
+  function ask_urtak_question() {
+    var question_input = jQuery('#urtak_question_text');
 
-    // create the new div, input, delete icon
-    var new_question_input        = document.createElement('input');
-    var new_question_div          = document.createElement('div');
-    var new_question_remove_button= document.createElement('input');
+    var data = {
+      action: 'create_urtak_question',
+      question_text: question_input.attr('value'),
+      post_id: <?php echo get_the_id(); ?>  
+    };
 
-    // set attributes input
-    new_question_input.setAttribute('type', 'text');
-    new_question_input.setAttribute('size', 60);
-    new_question_input.setAttribute('class','urtak_question_input');
-    new_question_input.setAttribute('name','urtak_question[][text]');
-  
-    // set attributes on remove icon
-    new_question_remove_button.setAttribute('type' , 'button');
-    new_question_remove_button.setAttribute('class', 'button-secondary');
-    new_question_remove_button.setAttribute('name' , 'remove_question');
-    new_question_remove_button.setAttribute('value', 'remove');
-    new_question_remove_button.setAttribute('onclick', 'remove_urtak_question(this); return false;');
+    jQuery.post(ajaxurl, data, function(response) {
+      try {
+        response = jQuery.parseJSON(response);
 
-    // set attributes on div
-    new_question_div.setAttribute('class', 'urtak_question');
+        if(response['question']) {
+          add_urtak_question(response['question']);
+        } else {
+          if(response['error']) {
+            alert(response['error']['message']);
+          }
+        }
+      } catch(error) {
+        alert(response);
+      }
+    });
 
-    // put the input and remove button the question div
-    new_question_div.appendChild(new_question_input);
-    new_question_div.appendChild(new_question_remove_button);
-
-    // add the new question to the rest and focus
-    questions_holder.appendChild(new_question_div);
-    new_question_input.focus();
+    question_input.attr('value', '');
+    question_input.focus();
   }
 
-  function remove_urtak_question(q_link) {
-    q_link.parentNode.parentNode.removeChild(q_link.parentNode);
-  }
-
-  function toggle_urtak_post_options(q_link) {
-    q_link.parentNode.parentNode.removeChild(q_link.parentNode);
+  function initialize_urtak_questions(response) {    
+    if(response['questions'] && response['questions']['question']) {
+      var questions = response['questions']['question'];
+      
+      jQuery.each(questions, function(index, question) {
+        add_urtak_question(question);
+      });
+    }
   }
   
+  function add_urtak_question(question) {
+    jQuery("#urtak_recent_questions").append(jQuery("<div>")
+      .attr("id", "urtak-question-"+question['id'])
+      .addClass("urtak_question")
+      .append(
+        jQuery("<div>")
+          .addClass("urtak_approved")
+          .addClass((question['status'] == 'approved') ? 'urtak_on' : 'urtak_off')
+          .attr("data-action", "approve")
+      )
+      .append(
+        jQuery("<div>")
+          .addClass("urtak_rejected")
+          .addClass((question['status'] == 'rejected') ? 'urtak_on' : 'urtak_off')
+          .attr("data-action", "reject")
+      )
+      .append(
+        jQuery("<div>")
+          .addClass("urtak_spam")
+          .addClass((question['status'] == 'spam') ? 'urtak_on' : 'urtak_off')
+          .attr("data-action", "mark_as_spam")
+      )
+      .append(
+        jQuery("<span>")
+          .addClass("urtak_question_text")
+          .addClass("urtak_on")
+          .html(question['text'])
+      )
+    );
+  }
+
   jQuery(document).ready(function() {
-    jQuery('#toggle_urtak_post_options_link').click(function() {
+    jQuery('#toggle_urtak_post_options').click(function() {
       jQuery('#urtak_post_options_content').fadeToggle('fast');
       return false;
     });
