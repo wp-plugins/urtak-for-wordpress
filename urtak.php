@@ -1,19 +1,19 @@
 <?php
 /**
  * @package Urtak
- * @version 0.9.3
+ * @version 0.9.5
  */
 
 /*
 Plugin Name: Urtak
 Plugin URI: http://wordpress.org/extend/plugins/urtak/
-Description: Urtak is the best way for your visitors to respond to content. Engage your users, ask and answer questions to create structured conversations and use that to better understand your audience and quite possibly... the world. After activation go to the <a href="plugins.php?page=urtak-config">Urtak configuration</a> page. 
+Description: Urtak gathers your users’ opinions by enabling them to ask and answer questions about your content. Letting your audience actively contribute by generating content with questions results in spending more time on site and sharing your content with their friends.
 Author: Kunal Shah
-Version: 0.9.3
+Version: 0.9.5
 Author URI: https://urtak.com/
 */
 
-require_once dirname( __FILE__ ) . '/urtak_api.php';
+require_once dirname( __FILE__ ) . '/urtak-php/urtak_api.php';
 
 // CONSTANTS
 define ('URTAK_PLUGINDIR'   , WP_PLUGIN_URL . '/' . str_replace (basename (__FILE__), '', plugin_basename (__FILE__)));
@@ -41,6 +41,7 @@ add_action('wp_ajax_create_urtak_question', 'create_urtak_question');
 add_action( 'admin_head', 'urtak_css' );
 
 // JS for Question Asking in Post Pages Only
+add_action( 'admin_head', 'urtak_js' );
 add_action( 'admin_head-post-new.php', 'urtak_post_js' );
 add_action( 'admin_head-post.php',     'urtak_post_js' );
 
@@ -71,7 +72,7 @@ function urtak_api() {
     'api_key'         => get_option('urtak_api_key'),
     'api_home'        => get_option('urtak_api_home'),
     'urtak_home'      => get_option('urtak_home'),
-    'client_name'     => "Urtak for Wordpress v0.9.3, running on WP ".$wp_version
+    'client_name'     => "Urtak for Wordpress v0.9.5, running on WP ".$wp_version
   );
   
   // Instantiate an Urtak API Wrapper Object
@@ -128,10 +129,10 @@ function urtak_deactivate() {
 // when writing a post
 function urtak_menus() {
   add_meta_box( 
-      'urtak_questions',
-      'Ask Questions with Urtak',
-      'urtak_questions_box',
-      'post' 
+    'urtak_questions',
+    'Ask Questions with Urtak',
+    'urtak_questions_box',
+    'post' 
   );
 }
 
@@ -141,7 +142,7 @@ function urtak_admin_warnings() {
   if ( !get_option('urtak_api_key') && !isset($_POST['submit']) ) {
     function urtak_warning() {
       echo "
-      <div id='urtak-warning' class='updated fade'><p><strong>".__('Urtak is almost ready.')."</strong> ".sprintf(__('You must <a href="%1$s">enter your Urtak API key</a> for it to work.'), "plugins.php?page=urtak-config")."</p></div>
+      <div id='urtak-warning' class='updated fade'><p><strong>".__('Urtak is almost ready.')."</strong> ".sprintf(__('You must <a href="%1$s">visit the configuration page</a> to complete your setup.'), "plugins.php?page=urtak-config")."</p></div>
       ";
     }
     add_action('admin_notices', 'urtak_warning');
@@ -476,9 +477,9 @@ function create_urtak_question() {
   $moderation = (get_option('urtak_automatic_create') == 'true') ? 'community' : 'publisher';
   
   if($_POST['question_text'] != "") {
-    $questions = array(0 => array('text' => $_POST['question_text']));
+    $questions = array(0 => array('text' => stripslashes($_POST['question_text'])));
   }
-
+  
   // Don't trust the WP post meta, always do an API call to see if an Urtak already exists
   $lookup = urtak_api()->get_urtak( 'post_id' , $post_id , array() );
   
@@ -553,44 +554,42 @@ function update_urtak_question() {
 
 // UI for Question Asking (post pages)
 function urtak_questions_box( $post ) {
+  if(urtak_ready()) {
 
-  // Query the API for a Questions + Urtak
-  $response = urtak_api()->get_urtak_questions( 'post_id' , get_the_id() , array() );
+    // Query the API for a Questions + Urtak
+    $response = urtak_api()->get_urtak_questions( 'post_id' , get_the_id() , array() );
 
-  // Successful query
-  if($response->success()) {
-    // This is now explicit, so use the API value
-    $urtak_community_moderation = (($response->body['questions']['urtak']['moderation'] == 'community') ? 'checked' : '');
+    // Successful query
+    if($response->success()) {
+      // This is now explicit, so use the API value
+      $urtak_community_moderation = (($response->body['questions']['urtak']['moderation'] == 'community') ? 'checked' : '');
 
-  // Not found
-  } else {
-    // Use the WordPress default
-    $urtak_community_moderation = check_moderate_urtak();
-  }
+    // Not found
+    } else {
+      // Use the WordPress default
+      $urtak_community_moderation = check_moderate_urtak();
+    }
 
-  // The user may explicity ask to hide/show an Urtak
-  $show_urtak = get_post_meta( get_the_id() , '_show_urtak' , true );
+    // The user may explicity ask to hide/show an Urtak
+    $show_urtak = get_post_meta( get_the_id() , '_show_urtak' , true );
 
-  // This was explicity set by the User or API
-  if($show_urtak == 'show') {
-    $urtak_enabled = 'checked';
+    // This was explicity set by the User or API
+    if($show_urtak == 'show') {
+      $urtak_enabled = 'checked';
 
-  // Again, explicity set
-  } elseif($show_urtak == 'hide') {
-    $urtak_enabled = '';
+    // Again, explicity set
+    } elseif($show_urtak == 'hide') {
+      $urtak_enabled = '';
 
-  // No value, so use the WordPress default
-  } else {
-    $urtak_enabled = check_add_urtak();
-  }
+    // No value, so use the WordPress default
+    } else {
+      $urtak_enabled = check_add_urtak();
+    }
 
-  // Use nonce for verification
-  wp_nonce_field( plugin_basename( __FILE__ ), 'urtak_questions' );
+    if((!($response->not_found())) && ($response->failure())) { 
+      echo "There was a problem connecting to Urtak ".$response->error();
+    }
 ?>
-
-<?php if((!($response->not_found())) && ($response->failure())) { 
-  echo "There was a problem connecting to Urtak ".$response->error();
-} ?>
 
 <input type='text' id='urtak_question_text' name='urtak_question_text' placeholder='Write a yes or no question, then click ask' size='60' />
 <input type='button' class='button-primary' name='ask_question' value='Ask Question' onclick='ask_urtak_question(); return false;'>
@@ -625,10 +624,21 @@ function urtak_questions_box( $post ) {
 </script>
 
 <?php
+  } else {
+    echo "<p><strong>".__('Urtak is almost ready.')."</strong> ".sprintf(__('You must <a href="%1$s">visit the configuration page</a> to complete your setup.'), "plugins.php?page=urtak-config")."</p>";
+  }
 }
 
 function check_add_urtak() {
   return (get_option('urtak_automatic_create') == 'true') ? 'checked' : '';
+}
+
+function urtak_ready() {
+  if((get_option('urtak_api_key') != "") && (get_option('urtak_publication_key') != "")) {
+    return true;
+  } else {
+    return false;
+  }
 }
 
 function check_moderate_urtak() {
@@ -637,213 +647,30 @@ function check_moderate_urtak() {
 
 // Urtak Question Box CSS
 function urtak_css() {
-?>
-<style type='text/css'>
-  .urtak_question{
-    clear:both;
-    margin:0 0 2px 0;
-  }
+  echo "<link rel='stylesheet' href='".URTAK_PLUGINDIR."css/urtak.css' type='text/css' media='all' />";
+}
 
-  #urtak_question_text {
-    font-size: 16px;
-    color:#333;
-    margin:5px 0;
-    line-height:22px;
-  }
-  .urtak_question_text {
-    font-size: 13px;
-    color:#333;
-    margin:5px 0 5px 5px;
-    line-height:22px;
-  }
-  
-  #urtak_recent_questions { padding-bottom: 6px;}
-  
-  div.urtak_approved.urtak_on {
-    background-image:url('<?php echo URTAK_IMAGESDIR ?>/qs-approved-active.png');
-    height:22px;
-    width:22px;
-    float:left;
-  }
-  div.urtak_approved.urtak_off {
-    background-image:url('<?php echo URTAK_IMAGESDIR ?>/qs-approved-inactive.png');
-    height:22px;
-    width:22px;
-    float:left;
-    cursor: pointer;
-  }
-  div.urtak_rejected.urtak_on {
-    background-image:url('<?php echo URTAK_IMAGESDIR ?>/qs-rejected-active.png');
-    height:22px;
-    width:22px;
-    float:left;
-  }
-  div.urtak_rejected.urtak_off {
-    background-image:url('<?php echo URTAK_IMAGESDIR ?>/qs-rejected-inactive.png');
-    height:22px;
-    width:22px;
-    float:left;
-    cursor: pointer;
-  }
-  div.urtak_spam.urtak_on {
-    background-image:url('<?php echo URTAK_IMAGESDIR ?>/qs-spam-active.png');
-    height:22px;
-    width:22px;
-    float:left;
-  }
-  div.urtak_spam.urtak_off {
-    background-image:url('<?php echo URTAK_IMAGESDIR ?>/qs-spam-inactive.png');
-    height:22px;
-    width:22px;
-    float:left;
-    cursor: pointer;
-  }
-
-  #urtak_post_help {
-    padding-top: 5px; 
-    margin: 0;
-  }
-</style>
-<?php
+// global vars
+function urtak_js() {
+  echo "<script type='text/javascript'>";
+  echo "  var urtak_home = '".get_option('urtak_home')."';";
+  echo "</script>";
 }
 
 // Urtak Question Box JS
 function urtak_post_js() {
-?>
-<script type='text/javascript'>
-  function ask_urtak_question() {
-    var question_input = jQuery('#urtak_question_text');
-
-    var data = {
-      action: 'create_urtak_question',
-      question_text: question_input.attr('value'),
-      post_id: <?php echo get_the_id(); ?>  
-    };
-
-    jQuery.post(ajaxurl, data, function(response) {
-      try {
-        response = jQuery.parseJSON(response);
-
-        if(response['question']) {
-          add_urtak_question(response['question']);
-        } else {
-          if(response['error']) {
-            alert(response['error']['message']);
-          }
-        }
-      } catch(error) {
-        alert(response);
-      }
-    });
-
-    question_input.attr('value', '');
-    question_input.focus();
-  }
-
-  function initialize_urtak_questions(response) {    
-    if(response['questions'] && response['questions']['question']) {
-      var questions = response['questions']['question'];
-      
-      jQuery.each(questions, function(index, question) {
-        add_urtak_question(question);
-      });
-    }
-  }
-  
-  function add_urtak_question(question) {
-    jQuery("#urtak_recent_questions").append(jQuery("<div>")
-      .attr("id", "urtak-question-"+question['id'])
-      .addClass("urtak_question")
-      .append(
-        jQuery("<div>")
-          .addClass("urtak_approved")
-          .addClass((question['status'] == 'approved') ? 'urtak_on' : 'urtak_off')
-          .attr("data-action", "approve")
-      )
-      .append(
-        jQuery("<div>")
-          .addClass("urtak_rejected")
-          .addClass((question['status'] == 'rejected') ? 'urtak_on' : 'urtak_off')
-          .attr("data-action", "reject")
-      )
-      .append(
-        jQuery("<div>")
-          .addClass("urtak_spam")
-          .addClass((question['status'] == 'spam') ? 'urtak_on' : 'urtak_off')
-          .attr("data-action", "mark_as_spam")
-      )
-      .append(
-        jQuery("<span>")
-          .addClass("urtak_question_text")
-          .addClass("urtak_on")
-          .html(question['text'])
-      )
-    );
-  }
-  
-  /*! http://mths.be/placeholder v1.8.5 by @mathias */
-  (function(g,a,$){var f='placeholder' in a.createElement('input'),b='placeholder' in a.createElement('textarea');if(f&&b){$.fn.placeholder=function(){return this};$.fn.placeholder.input=$.fn.placeholder.textarea=true}else{$.fn.placeholder=function(){return this.filter((f?'textarea':':input')+'[placeholder]').bind('focus.placeholder',c).bind('blur.placeholder',e).trigger('blur.placeholder').end()};$.fn.placeholder.input=f;$.fn.placeholder.textarea=b;$(function(){$('form').bind('submit.placeholder',function(){var h=$('.placeholder',this).each(c);setTimeout(function(){h.each(e)},10)})});$(g).bind('unload.placeholder',function(){$('.placeholder').val('')})}function d(i){var h={},j=/^jQuery\d+$/;$.each(i.attributes,function(l,k){if(k.specified&&!j.test(k.name)){h[k.name]=k.value}});return h}function c(){var h=$(this);if(h.val()===h.attr('placeholder')&&h.hasClass('placeholder')){if(h.data('placeholder-password')){h.hide().next().show().focus().attr('id',h.removeAttr('id').data('placeholder-id'))}else{h.val('').removeClass('placeholder')}}}function e(){var l,k=$(this),h=k,j=this.id;if(k.val()===''){if(k.is(':password')){if(!k.data('placeholder-textinput')){try{l=k.clone().attr({type:'text'})}catch(i){l=$('<input>').attr($.extend(d(this),{type:'text'}))}l.removeAttr('name').data('placeholder-password',true).data('placeholder-id',j).bind('focus.placeholder',c);k.data('placeholder-textinput',l).data('placeholder-id',j).before(l)}k=k.removeAttr('id').hide().prev().attr('id',j).show()}k.addClass('placeholder').val(k.attr('placeholder'))}else{k.removeClass('placeholder')}}}(this,document,jQuery));
-
-  jQuery(document).ready(function() {
-    jQuery('#toggle_urtak_help').click(function() {
-      jQuery('#urtak_post_help').fadeToggle('fast');
-      return false;
-    });
-    
-    jQuery('#urtak_question_text').ajaxStart(function(){
-      jQuery(this).css("background", "url(<?php echo esc_url(admin_url('images/wpspin_light.gif')); ?>) no-repeat 99% 50%");
-    });
-
-    jQuery('#urtak_question_text').ajaxStop(function(){
-      jQuery(this).css("background", "");
-    });
-    
-    jQuery('.urtak_off').live('click', function() {
-      var question = jQuery(this);
-      
-      var data = {
-        action: 'update_urtak_question',
-        question_id: jQuery(this).parents('.urtak_question').attr('id'),
-        post_id: <?php echo get_the_id(); ?>,
-        status: jQuery(this).attr('data-action')
-      };
-     
-      jQuery.post(ajaxurl, data, function(response) {
-        if(response == 'success') {
-          // if success, just update the icons
-          question.removeClass('urtak_off');
-          question.addClass('urtak_on');
-          question.siblings().each(function() {
-            jQuery(this).removeClass('urtak_on');
-            jQuery(this).addClass('urtak_off');
-          });
-        } else {
-          // return the error
-          alert(response);
-        }
-      });
-    });
-    
-  });
-
-</script>
-<?php
+  echo "<script type='text/javascript'>";
+  echo "  var post_id = '".get_the_id()."';";
+  echo "  var spinner_url = '".esc_url(admin_url('images/wpspin_light.gif'))."';";
+  echo "</script>";
+  echo "<script type='text/javascript' src='".URTAK_PLUGINDIR."js/placeholder.min.js'></script>";
+  echo "<script type='text/javascript' src='".URTAK_PLUGINDIR."js/raphael.js'></script>";
+  echo "<script type='text/javascript' src='".URTAK_PLUGINDIR."js/pie.js'></script>";
+  echo "<script type='text/javascript' src='".URTAK_PLUGINDIR."js/urtak_questions.js'></script>";
 }
 
 // Urtak Configuration Page JS
 function urtak_config_js() {
-?>
-<script type="text/javascript">
-  jQuery(document).ready(function() {
-    jQuery('#get_urtak_keys_popup').click(function(ev) {
-      window.open("<?php echo get_option('urtak_home'); ?>/api_keys?from=wordpress",
-      "Get Your Urtak Account and API Keys","width=800,height=400");
-      ev.preventDefault();
-      return false;
-    });
-  });
-</script>
-<?php
+  echo "<script type='text/javascript' src='".URTAK_PLUGINDIR."js/urtak_config.js'></script>";
 }
-
 ?>

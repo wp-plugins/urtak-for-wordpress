@@ -1,0 +1,97 @@
+.urtak_question{
+  clear:both;
+  margin:2px 0 2px 2px;
+  padding:2px 0 2px 2px;
+  border:1px solid transparent;
+}
+.urtak_question_hover, .urtak_question:hover{
+  background-color:#FFF;
+  border:1px solid #EEE;
+}
+.urtak_question_text {
+  font-size: 13px;
+  color:#333;
+  margin:5px 0 5px 5px;
+  line-height:22px;
+}
+.urtak_question_info {
+  color:#333;
+  background-color:#FFF;
+  font-size: 13px;
+  line-height:22px;
+  margin: 10px 0 5px 71px;
+  display:none;
+}
+.urtak_pie{
+  float:left;
+  margin: 0 10px 0 0;
+  clear:left;
+}
+.urtak_question_no {
+  color:#ff7100;
+}
+.urtak_question_yes {
+  color:#00aef0;
+}
+.urtak_question_care, .urtak_question_total {
+  color:#000;
+}
+.urtak_question_links {
+}
+
+#urtak_question_text {
+  font-size: 16px;
+  color:#333;
+  margin:5px 0;
+  line-height:22px;
+}
+
+.urtak_question_responses {
+  overflow:hidden;
+  line-height:17px;
+}
+
+div.urtak_approved.urtak_on {
+  background-image:url('../images/qs-approved-active.png');
+  height:22px;
+  width:22px;
+  float:left;
+}
+div.urtak_approved.urtak_off {
+  background-image:url('../images/qs-approved-inactive.png');
+  height:22px;
+  width:22px;
+  float:left;
+  cursor: pointer;
+}
+div.urtak_rejected.urtak_on {
+  background-image:url('../images/qs-rejected-active.png');
+  height:22px;
+  width:22px;
+  float:left;
+}
+div.urtak_rejected.urtak_off {
+  background-image:url('../images/qs-rejected-inactive.png');
+  height:22px;
+  width:22px;
+  float:left;
+  cursor: pointer;
+}
+div.urtak_spam.urtak_on {
+  background-image:url('../images/qs-spam-active.png');
+  height:22px;
+  width:22px;
+  float:left;
+}
+div.urtak_spam.urtak_off {
+  background-image:url('../images/qs-spam-inactive.png');
+  height:22px;
+  width:22px;
+  float:left;
+  cursor: pointer;
+}
+
+#urtak_post_help {
+  padding-top: 5px; 
+  margin: 0;
+}

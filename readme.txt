@@ -83,6 +83,6 @@ Requires PHP-cURL
 
 == Changelog ==
 
-= 0.9.3 = 
+= 0.9.5 = 
 * Buildout
 * Bundled API Client

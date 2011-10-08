@@ -2,7 +2,7 @@
 /**
  * Urtak v1 API Wrapper for PHP
  * --------------------------------
- * @version:        0.9.3
+ * @version:        0.9.5
  * @author:         Kunal Shah <kunal@urtak.com>
  * @creation date:  September 08, 2011
  * @link:           https://urtak.com/dev
@@ -17,7 +17,7 @@ class Urtak {
   protected $urtak_home   = 'https://urtak.com';      // Home Url
   protected $api_home     = 'https://urtak.com/api';  // API Url
   protected $api_format   = 'JSON';                   // XML or JSON
-  protected $client_name  = 'Urtak API Wrapper for PHP v0.9.3';
+  protected $client_name  = 'Urtak API Wrapper for PHP v0.9.5';
 
   public function __construct($config = array())
   {
@@ -374,7 +374,7 @@ class Urtak {
     curl_setopt($curl_handle, CURLOPT_SSL_VERIFYPEER, true);
     curl_setopt($curl_handle, CURLOPT_HEADER, true);
 
-    $headers[] = $method." ".$path." HTTP/1.0";
+    $headers[] = $method." ".$path." HTTP/1.1";
     $headers[] = "Host: ".preg_replace('/https?:\/\//', '', $this->urtak_home);
     $headers[] = "Accept: ".$this->media_types();
 

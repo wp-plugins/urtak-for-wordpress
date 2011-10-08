@@ -1,0 +1,41 @@
+# urtak-php
+
+A PHP client library for the Urtak API.
+
+This is very new and should be used with care.
+
+## Versioning
+
+We use semantic versioning with the API itself.
+
+## Getting Started
+
+    // Build a configuration array, more options in the docs
+    $configuration = array(
+      'publication_key' => 'd41d8cd98f00b204e9800998ecf8427e', 
+      'api_key'         => 'e8e1b029c86b08560f77bf3c23f42707f821ef37'
+    );
+  
+    // Instantiate an Urtak API Wrapper Object
+    return new Urtak($configuration);
+
+    // Use it! Response is json-decoded array here
+    $response = urtak_api()->get_urtaks(array());
+
+## More Info
+
+For more information on the Urtak API:
+https://developer.urtak.com/
+
+## Contributors
+
+Kunal Shah
+
+## To Do's and Known Issues
+
+ * Test!
+ * Remove cURL-PHP dependency
+
+## Contributing
+
+Fork the project and send pull requests. You can reach us at #urtak on freenode, or message us through github. We're happy to help.
