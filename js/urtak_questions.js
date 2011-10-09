@@ -30,10 +30,33 @@ function ask_urtak_question() {
 function initialize_urtak_questions(response) {    
   if(response['questions'] && response['questions']['question']) {
     var questions = response['questions']['question'];
+    var entries   = response['questions']['entries'];
+    var offset    = response['questions']['offset'];
+    var remaining = entries - offset - 20;
     
     jQuery.each(questions, function(index, question) {
       add_urtak_question(question);
     });
+    
+    if(response['questions']['link']) {
+      // var previous = jQuery.grep(response['questions']['link'], function(link , i){if(link.rel == 'previous') {return true;}});
+      var next     = jQuery.grep(response['questions']['link'], function(link , i){if(link.rel == 'next') {return true;}});
+      var results  = jQuery.grep(response['questions']['urtak']['link'], function(link , i){if(link.rel == 'results') {return true;}});
+      
+      // if(previous[0]) {
+      //   
+      // }
+      
+      if(next[0]) {
+        jQuery("#urtak_pagination_links")
+          .append(
+            jQuery("<a>")
+            .attr("href", results[0].href)
+            .attr("target", "_blank")
+            .html(remaining+" more questions available at your dashboard...")
+          )
+      }
+    }
   }
 }
 
@@ -80,25 +103,15 @@ function add_urtak_question(question) {
             .addClass("urtak_question_responses")
             .append(
               jQuery("<tr>")
-              .addClass("urtak_question_yes")
-              .append(jQuery("<th>").html("Yes"))
-              .append(jQuery("<td>").html(question['responses']['counts']['yes']))
-            )
-            .append(
-              jQuery("<tr>")
-              .addClass("urtak_question_no")
-              .append(jQuery("<th>").html("No"))
-              .append(jQuery("<td>").html(question['responses']['counts']['no']))
-            )
-            .append(
-              jQuery("<tr>")
-              .addClass("urtak_question_total")
+              .append(jQuery("<th>").html("Yes").addClass("urtak_question_yes"))
+              .append(jQuery("<td>").html(question['responses']['counts']['yes']).addClass("urtak_question_yes"))
               .append(jQuery("<th>").html("Total"))
               .append(jQuery("<td>").html(question['responses']['counts']['total']))
             )
             .append(
               jQuery("<tr>")
-              .addClass("urtak_question_care")
+              .append(jQuery("<th>").html("No").addClass("urtak_question_no"))
+              .append(jQuery("<td>").html(question['responses']['counts']['no']).addClass("urtak_question_no"))
               .append(jQuery("<th>").html("Care"))
               .append(jQuery("<td>").html((question['responses']['percents']['care'] == null) ? 'n/a' : (question['responses']['percents']['care']+"%")))
             )
@@ -110,7 +123,7 @@ function add_urtak_question(question) {
               jQuery("<a>")
               .attr("href", jQuery.grep(question.link, function(link , i){if(link.rel == 'results') {return true;}})[0].href)
               .attr("target", "_blank")
-              .html("see detailed results on urtak")
+              .html("see more analysis at Urtak")
             )
         )
     )
@@ -129,6 +142,13 @@ jQuery(document).ready(function() {
 
   jQuery('#urtak_question_text').ajaxStop(function(){
     jQuery(this).css("background", "");
+  });
+  
+  jQuery('#urtak_question_text').keypress(function(e) {
+    if (e.keyCode == 13) {
+      ask_urtak_question();
+      return false;
+    }
   });
   
   jQuery("#urtak_recent_questions").delegate(".urtak_question", "click", function(e){

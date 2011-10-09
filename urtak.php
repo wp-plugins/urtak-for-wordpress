@@ -1,7 +1,7 @@
 <?php
 /**
  * @package Urtak
- * @version 0.9.5
+ * @version 0.9.6
  */
 
 /*
@@ -9,7 +9,7 @@ Plugin Name: Urtak
 Plugin URI: http://wordpress.org/extend/plugins/urtak/
 Description: Urtak gathers your users’ opinions by enabling them to ask and answer questions about your content. Letting your audience actively contribute by generating content with questions results in spending more time on site and sharing your content with their friends.
 Author: Kunal Shah
-Version: 0.9.5
+Version: 0.9.6
 Author URI: https://urtak.com/
 */
 
@@ -72,7 +72,7 @@ function urtak_api() {
     'api_key'         => get_option('urtak_api_key'),
     'api_home'        => get_option('urtak_api_home'),
     'urtak_home'      => get_option('urtak_home'),
-    'client_name'     => "Urtak for Wordpress v0.9.5, running on WP ".$wp_version
+    'client_name'     => "Urtak for Wordpress v0.9.6, running on WP ".$wp_version
   );
   
   // Instantiate an Urtak API Wrapper Object
@@ -95,8 +95,11 @@ function urtak_activate() {
   if( !get_option('urtak_automatic_create') ) {
     update_option('urtak_automatic_create', 'true');
   }
-  if( !get_option('urtak_automatic_moderation') ) {
-    update_option('urtak_automatic_moderation', 'true');
+  if( !get_option('urtak_moderation') ) {
+    update_option('urtak_moderation', 'community');
+  }
+  if( !get_option('urtak_language') ) {
+    update_option('urtak_language', 'en');
   }
   if( !get_option('urtak_embed') ) {
     update_option('urtak_embed', 'after_post');
@@ -117,7 +120,7 @@ function urtak_deactivate() {
   delete_option('urtak_api_home');
   delete_option('urtak_home');
   delete_option('urtak_automatic_create');
-  delete_option('urtak_automatic_moderation');
+  delete_option('urtak_moderation');
   delete_option('urtak_embed');
   delete_option('urtak_widget_js_url');
   delete_option('urtak_widget_js_protocol');
@@ -247,6 +250,9 @@ function urtak_conf() {
     update_option( 'urtak_api_key',         $_POST['urtak_api_key'] );
     update_option( 'urtak_publication_key', $_POST['urtak_publication_key'] );
 
+    // Set Language
+    update_option( 'urtak_language', $_POST['urtak_language'] );
+
     // Set Automatic Creation
     if (array_key_exists('urtak_automatic_create', $_POST)) {
       update_option( 'urtak_automatic_create', 'true' );
@@ -255,10 +261,10 @@ function urtak_conf() {
     };
 
     // Set Community vs. Publisher Moderation
-    if (array_key_exists('urtak_automatic_moderation', $_POST)) {
-      update_option( 'urtak_automatic_moderation', 'true' );
+    if (array_key_exists('urtak_moderation', $_POST)) {
+      update_option( 'urtak_moderation', 'community' );
     } else {
-      update_option( 'urtak_automatic_moderation', 'false' );
+      update_option( 'urtak_moderation', 'publisher' );
     };
 
     update_option( 'urtak_embed', $_POST['urtak_embed'] );
@@ -306,7 +312,9 @@ function urtak_conf() {
 
         $publication_response = urtak_api()->create_publication('email', get_option('urtak_email'), array(
           'domains'    => get_bloginfo('wpurl'),
-          'name'       => get_bloginfo('name')
+          'name'       => get_bloginfo('name'),
+          'moderation' => get_option('urtak_moderation'),
+          'language'   => get_option('urtak_language')
         ));
         
         // Great! lets store the key!
@@ -397,6 +405,18 @@ function urtak_conf() {
         You do not need to set anything below. We will automatically create your publication key if you do not have one you&apos;d like to use.
       </p>
 
+      <h3><label for="urtak_publication_key"><?php _e('Publication Key'); ?></label></h3>
+      <p>
+        Since you can use Urtak on your WordPress as well as other <a href="http://developer.urtak.com/#platforms" target="_blank">platforms</a>, you&apos;ll need a publication key for each so we know how to store your urtaks when you 
+        visit the <a href="https://urtak.com/dashboard" target="_blank">dashboard</a>.
+      </p>
+      <p>
+        Again, this field is optional since we will automatically generate a publication key for you if you do not have one you&apos;d like 
+        to use.
+      </p>
+      <input id="urtak_publication_key" name="urtak_publication_key" type="text" size="40" maxlength="40" value="<?php echo get_option('urtak_publication_key'); ?>" /> 
+
+
       <h3><label for="urtak_embed"><?php _e('Embedding Options'); ?></label></h3>
       <p>Choose where you&apos;d like to place the widget.</p>
       <input style="vertical-align:baseline;" name="urtak_embed" type="radio" value="after_post" <?php if(get_option('urtak_embed') == 'after_post') { echo("checked='checked'"); } ?>/> 
@@ -413,16 +433,14 @@ function urtak_conf() {
         </pre>
       </p>
 
-      <h3><label for="urtak_publication_key"><?php _e('Publication Key'); ?></label></h3>
+      <h3><label for="urtak_language"><?php _e('Language'); ?></label></h3>
       <p>
-        Since you can use Urtak on your WordPress as well as other <a href="http://developer.urtak.com/#platforms" target="_blank">platforms</a>, you&apos;ll need a publication key for each so we know how to store your urtaks when you 
-        visit the <a href="https://urtak.com/dashboard" target="_blank">dashboard</a>.
+        Choose the language used in the widget your users see.
       </p>
-      <p>
-        Again, this field is optional since we will automatically generate a publication key for you if you do not have one you&apos;d like 
-        to use.
-      </p>
-      <input id="urtak_publication_key" name="urtak_publication_key" type="text" size="40" maxlength="40" value="<?php echo get_option('urtak_publication_key'); ?>" /> 
+      <input style="vertical-align:baseline;" id="urtak_language" name="urtak_language" type="radio" value="en" <?php if(get_option('urtak_language') == 'en') {echo("checked='checked'");} ?>/> 
+      <span style="font-size:14px;padding:5px;">English</span><br />
+      <input style="vertical-align:baseline;" id="urtak_language" name="urtak_language" type="radio" value="es" <?php if(get_option('urtak_language') == 'es') {echo("checked='checked'");} ?>/>
+      <span style="font-size:14px;padding:5px;">Español</span><br />
 
       <h3><label for="urtak_automatic_post"><?php _e('Include Urtak by Default?'); ?></label></h3>
       <p>
@@ -431,7 +449,7 @@ function urtak_conf() {
       </p>
       <input id="urtak_automatic_post" name="urtak_automatic_create" type="checkbox" value="true" <?php echo check_add_urtak(); ?>/> Place an Urtak on each of my posts
 
-      <h3><label for="urtak_automatic_moderation"><?php _e('Community Moderation?'); ?></label></h3>
+      <h3><label for="urtak_moderation"><?php _e('Community Moderation?'); ?></label></h3>
       <p>
         We want Urtak to be very simple for you. Instead of requiring you to approve each and every question, we let the community 
         determine whether or not a question gets removed through the "Don&apos;t Care" option. The more the button gets hit, the less 
@@ -440,7 +458,7 @@ function urtak_conf() {
       <p>
         Opting out of community moderation means you&apos;ll either receive emails for each question or can moderate through the Add New / Edit Post interface.
       </p>
-      <input id="urtak_automatic_moderation" name="urtak_automatic_moderation" type="checkbox" value="true" <?php echo check_moderate_urtak(); ?> /> Instead of sending me emails, let the community moderate for me
+      <input id="urtak_moderation" name="urtak_moderation" type="checkbox" value="true" <?php echo check_moderate_urtak(); ?> /> Instead of sending me emails, let the community moderate for me
 
       <div id="urtak_development_options" style="display:none;">
       <h3>Developer Settings</h3>
@@ -474,7 +492,6 @@ function urtak_conf() {
 function create_urtak_question() {
   $post_id    = $_POST['post_id'];
   $questions  = array();
-  $moderation = (get_option('urtak_automatic_create') == 'true') ? 'community' : 'publisher';
   
   if($_POST['question_text'] != "") {
     $questions = array(0 => array('text' => stripslashes($_POST['question_text'])));
@@ -499,7 +516,6 @@ function create_urtak_question() {
       'post_id'     => $post_id,
       'permalink'   => get_permalink($post_id),
       'title'       => get_the_title($post_id),
-      'moderation'  => $moderation
     );
 
     $response = urtak_api()->create_urtak($urtak, $questions);
@@ -554,40 +570,13 @@ function update_urtak_question() {
 
 // UI for Question Asking (post pages)
 function urtak_questions_box( $post ) {
+  // If we should be able to connec, than query the API for this post's Questions and Urtak
   if(urtak_ready()) {
-
-    // Query the API for a Questions + Urtak
     $response = urtak_api()->get_urtak_questions( 'post_id' , get_the_id() , array() );
 
-    // Successful query
-    if($response->success()) {
-      // This is now explicit, so use the API value
-      $urtak_community_moderation = (($response->body['questions']['urtak']['moderation'] == 'community') ? 'checked' : '');
-
-    // Not found
-    } else {
-      // Use the WordPress default
-      $urtak_community_moderation = check_moderate_urtak();
-    }
-
-    // The user may explicity ask to hide/show an Urtak
-    $show_urtak = get_post_meta( get_the_id() , '_show_urtak' , true );
-
-    // This was explicity set by the User or API
-    if($show_urtak == 'show') {
-      $urtak_enabled = 'checked';
-
-    // Again, explicity set
-    } elseif($show_urtak == 'hide') {
-      $urtak_enabled = '';
-
-    // No value, so use the WordPress default
-    } else {
-      $urtak_enabled = check_add_urtak();
-    }
-
+    // 404'ing is okay, but any other error in 400-500 is bad, so display it
     if((!($response->not_found())) && ($response->failure())) { 
-      echo "There was a problem connecting to Urtak ".$response->error();
+      echo "<strong>Sorry, but there was a problem connecting with Urtak ".$response->error()."</strong><br />";
     }
 ?>
 
@@ -596,34 +585,70 @@ function urtak_questions_box( $post ) {
 <input type='button' class='button-secondary' name='help' value='Help' id='toggle_urtak_help'>
 
 <div id='urtak_post_help' style='display:none;'>
+  <h4>Question Status</h4>
+  <p>A question waiting for approval will appear like this:</p>
+
+  <div class="spanner"></div>
+  <div class="urtak_approved urtak_off"></div>
+  <div class="urtak_rejected urtak_off"></div>
+  <div class="urtak_spam urtak_off"></div>
+  <span class="urtak_question_text">Do you like dogs?</span>
+  <br />
+
+  <p>Click the desired status to approve, reject, or mark a question as spam:</p>
+
+  <div class="spanner"></div>
+  <div class="urtak_approved urtak_on"></div>
+  <div class="urtak_rejected urtak_off"></div>
+  <div class="urtak_spam urtak_off"></div>
+  <span class="urtak_question_text">Do you like dogs?</span>
+  <br />
+
+  <div class="spanner"></div>
+  <div class="urtak_approved urtak_off"></div>
+  <div class="urtak_rejected urtak_on"></div>
+  <div class="urtak_spam urtak_off"></div>
+  <span class="urtak_question_text">What kind of dog do you have?</span>
+  <br />
+
+  <div class="spanner"></div>
+  <div class="urtak_approved urtak_off"></div>
+  <div class="urtak_rejected urtak_off"></div>
+  <div class="urtak_spam urtak_on"></div>
+  <span class="urtak_question_text">Call 1-800-BUY-A-DOG today</span>
+  <br />
+
+  <p>Approved questions will enter into the Urtak stream and bad questions will be removed. Don’t like a question anymore? You can return to this interface anytime to adjust a question’s status.</p>
+
   <h4>How to Ask Question</h4>
   <p>
-    The more questions your audience answers, the better insight you get. So keep them answering questions by making 
-    each one simple but entertaining. Overly lengthy questions with too much background cause people to quit. Similarly 
-    vague questions can confuse. For a more extensive guide on question asking guidelines, see our <a href="http://urtak.com/faq/#asking" target="_blank">FAQ</a>.
+  To obtain the best results, be sure to ask questions that can be answered with Yes, No, or Don’t Care. The more questions that your audience answers, the better insight you’ll get so keep them answering questions by making each one simple and engaging. Being overly lengthy and detailed can cause people to quit, likewise vague questions may have a similar outcome. As always, the don’t care option will help you ask the right questions by letting your audience show you what questions they’re interested in.
   </p>
-
-  <h4>Question States</h4>
-  <p>
-    Reject, approve or mark as spam any question by clicking on the state you desire
-  </p>
-  <img src='<?php echo URTAK_IMAGESDIR ?>/qs-approved-inactive.png' width='22' height='22'/> Click to approve this question<br />
-  <img src='<?php echo URTAK_IMAGESDIR ?>/qs-rejected-inactive.png' width='22' height='22'/> Click to reject this question<br />
-  <img src='<?php echo URTAK_IMAGESDIR ?>/qs-spam-inactive.png' width='22' height='22'/> Click to mark this question as spam<br />
-
-  <img src='<?php echo URTAK_IMAGESDIR ?>/qs-approved-active.png' width='22' height='22'/> This question was approved <br />
-  <img src='<?php echo URTAK_IMAGESDIR ?>/qs-rejected-active.png' width='22' height='22'/> This question was rejected<br />
-  <img src='<?php echo URTAK_IMAGESDIR ?>/qs-spam-active.png' width='22' height='22'/> This question was marked as spam<br />
 </div>
 
 <h4 id="urtak_recent_questions_title">Recently Asked Questions</h4>
 <div id="urtak_recent_questions"></div>
+<div id="urtak_pagination_links"></div>
 
 <script type="text/javascript">
   initialize_urtak_questions(<?php echo($response->raw_body)?>);
 </script>
 
 <?php
+function urtak_results($l) {
+  if($l['rel']=='results') { 
+    return true;
+  } else {
+    return false;
+  }
+}
+    // Display link to full dashboard results.
+    if($response->success() && $response->body['questions']['urtak']) {
+      $link = array_pop(array_filter($response->body['questions']['urtak']['link'], 'urtak_results'));
+      echo("<br /><em>View and analyze the full results via <a href=".$link['href']." target='_blank'>your dashboard</a>.</em>");
+    }
+
+  // Urtak is not ready, display a warning
   } else {
     echo "<p><strong>".__('Urtak is almost ready.')."</strong> ".sprintf(__('You must <a href="%1$s">visit the configuration page</a> to complete your setup.'), "plugins.php?page=urtak-config")."</p>";
   }
@@ -642,7 +667,7 @@ function urtak_ready() {
 }
 
 function check_moderate_urtak() {
-  return (get_option('urtak_automatic_moderation') == 'true') ? 'checked' : '';
+  return (get_option('urtak_moderation') == 'community') ? 'checked' : '';
 }
 
 // Urtak Question Box CSS
