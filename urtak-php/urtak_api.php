@@ -2,7 +2,7 @@
 /**
  * Urtak v1 API Wrapper for PHP
  * --------------------------------
- * @version:        0.9.6
+ * @version:        0.9.7
  * @author:         Kunal Shah <kunal@urtak.com>
  * @creation date:  September 08, 2011
  * @link:           https://urtak.com/dev
@@ -17,7 +17,7 @@ class Urtak {
   protected $urtak_home   = 'https://urtak.com';      // Home Url
   protected $api_home     = 'https://urtak.com/api';  // API Url
   protected $api_format   = 'JSON';                   // XML or JSON
-  protected $client_name  = 'Urtak API Wrapper for PHP v0.9.6';
+  protected $client_name  = 'Urtak API Wrapper for PHP v0.9.7';
 
   public function __construct($config = array())
   {
@@ -98,8 +98,8 @@ class Urtak {
    * @params  Lookup a publication
    * @return  UrtakResponse
    */
-  public function get_publication($id) {
-    return $this->curl_request('/publications/'.$id, 'GET', array());
+  public function get_publication($key) {
+    return $this->curl_request('/publications/'.$key, 'GET', array());
   }
 
   /** Create a Publication
@@ -111,6 +111,16 @@ class Urtak {
   public function create_publication($property, $value, $options) {
     $data = array($property => $value, 'publication' => $options);
     return $this->curl_request('/publications', 'POST', $data);
+  }
+
+  /** Update a Publication
+   * 
+   * @access  @public
+   * @params  Updates a publication
+   * @return  UrtakResponse
+   */
+  public function update_publication($key, $options) {
+    return $this->curl_request('/publications/'.$key, 'PUT', array('publication' => $options));
   }
 
   // --------------------------------------------------------------------

@@ -123,7 +123,7 @@ function add_urtak_question(question) {
               jQuery("<a>")
               .attr("href", jQuery.grep(question.link, function(link , i){if(link.rel == 'results') {return true;}})[0].href)
               .attr("target", "_blank")
-              .html("see more analysis at Urtak")
+              .html("Full Results &raquo;")
             )
         )
     )
