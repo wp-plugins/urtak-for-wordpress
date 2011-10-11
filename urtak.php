@@ -398,7 +398,7 @@ function urtak_conf() {
 
     <h3><label for="urtak_api_key"><?php _e('API Key (optional)'); ?></label></h3>
     <p>
-      If you have one, you can get it here. Otherwise we&apos;ll create one for you.
+      If you already have one, you <?php echo "<a href='".get_option('urtak_home')."/api_keys' id='get_urtak_keys_popup'>can find it here</a>"; ?>. Otherwise we&apos;ll create one for you.
     </p>
     <input id="urtak_api_key" name="urtak_api_key" type="text" size="40" maxlength="40" value="<?php echo get_option('urtak_api_key'); ?>" /> 
 
@@ -451,12 +451,12 @@ function urtak_conf() {
       <input style="vertical-align:baseline;" id="urtak_language" name="urtak_language" type="radio" value="es" <?php echo($check_spanish); ?>/>
       <span style="font-size:14px;padding:5px;">Español</span><br />
 
-      <h3><label for="urtak_automatic_post"><?php _e('Include Urtak by Default?'); ?></label></h3>
+      <h3><label for="urtak_automatic_create"><?php _e('Include Urtak by Default?'); ?></label></h3>
       <p>
-        Just like comments, Urtak should be useful on every post. From the Add New / Edit Post screen you&apos;ll have the option to exclude 
-        Urtak on an individual post. We highly recommend you keep this enabled.
+        Just like comments, Urtak is useful on every post. We highly recommend for you to keep this enabled. However, if you don't want to include 
+        it on every post just uncheck the box and Urtak will only appears on posts on which you've asked a question.
       </p>
-      <input id="urtak_automatic_post" name="urtak_automatic_create" type="checkbox" value="true" <?php echo check_add_urtak(); ?>/> Place an Urtak on each of my posts
+      <input id="urtak_automatic_create" name="urtak_automatic_create" type="checkbox" value="true" <?php echo check_add_urtak(); ?>/> Place an Urtak on each of my posts
 
       <h3><label for="urtak_moderation"><?php _e('Community Moderation?'); ?></label></h3>
       <p>

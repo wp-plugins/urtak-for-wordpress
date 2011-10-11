@@ -1,6 +1,11 @@
 function ask_urtak_question() {
   var question_input = jQuery('#urtak_question_text');
-
+  
+  if(jQuery.trim(question_input.attr('value')) == "") {
+    alert("Write a yes or no question, then click 'Ask Question', click help for more information.");
+    return false;
+  }
+  
   var data = {
     action: 'create_urtak_question',
     question_text: question_input.attr('value'),
