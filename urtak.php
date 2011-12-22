@@ -1,7 +1,7 @@
 <?php
 /**
  * @package Urtak
- * @version 0.9.7
+ * @version 0.9.8
  */
 
 /*
@@ -9,7 +9,7 @@ Plugin Name: Urtak
 Plugin URI: http://wordpress.org/extend/plugins/urtak/
 Description: Urtak gathers your users’ opinions by enabling them to ask and answer questions about your content. Letting your audience actively contribute by generating content with questions results in spending more time on site and sharing your content with their friends.
 Author: Kunal Shah
-Version: 0.9.7
+Version: 0.9.8
 Author URI: https://urtak.com/
 */
 
