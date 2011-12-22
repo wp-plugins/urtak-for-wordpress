@@ -98,6 +98,9 @@ function urtak_activate() {
   if( !get_option('urtak_embed') ) {
     update_option('urtak_embed', 'after_post');
   }
+  if( !get_option('urtak_embed_on_homepage') ) {
+    update_option('urtak_embed_on_homepage', 'true');
+  }
   if( !get_option('urtak_widget_js_url') ) {
     update_option('urtak_widget_js_url', 'https://d39v39m55yawr.cloudfront.net/assets/clr.js');
   }
@@ -115,6 +118,7 @@ function urtak_deactivate() {
   delete_option('urtak_home');
   delete_option('urtak_automatic_create');
   delete_option('urtak_embed');
+  delete_option('urtak_embed_on_homepage');
   delete_option('urtak_widget_js_url');
   delete_option('urtak_widget_js_protocol');
   delete_option('urtak_email');
@@ -185,6 +189,7 @@ function make_urtak_widget() {
   }
 }
 
+// This is the hook function that gives us the posts content and allows us to modify it
 function add_urtak_widget( $content ) {
   if((get_option('urtak_embed') == 'after_post') && should_show_widget()) {
     return $content.urtak_widget();
@@ -193,12 +198,19 @@ function add_urtak_widget( $content ) {
   }
 }
 
+// The widget is display under the follow conditions:
+//    This is a single post or show on homepage is set (appropriate)
+//    The widget's visibility was explicitly set to show
+//    The widget's visibility isn't set, but automatic add is true
 function should_show_widget() {
-  // to show the widget, this must be a single post.
-  // The widget should not be explictly hidden, or if there is no post-meta, then check the default (handles legacy)
+  $appropriate_page = ((is_home() || is_front_page()) && (get_option('urtak_embed_on_homepage') == 'true')) || (is_single());
   $meta_value = get_post_meta(get_the_id(),'_show_urtak',true);
-  
-  if ((is_single()) && (($meta_value == 'show')) || (($meta_value == '') && (get_option('urtak_automatic_create') == 'true'))) {
+
+  if (!$appropriate_page) {
+    return false;
+  } else if ($meta_value == 'show') {
+    return true;
+  } else if (($meta_value == '') && (get_option('urtak_automatic_create') == 'true')) {
     return true;
   } else {
     return false;
@@ -249,7 +261,14 @@ function urtak_conf() {
     } else {
       update_option( 'urtak_automatic_create', 'false' );
     };
-    update_option( 'urtak_embed',            $_POST['urtak_embed'] );
+
+    update_option( 'urtak_embed', $_POST['urtak_embed'] );
+
+    if (array_key_exists('urtak_embed_on_homepage', $_POST)) {
+      update_option( 'urtak_embed_on_homepage', 'true' );
+    } else {
+      update_option( 'urtak_embed_on_homepage', 'false' );
+    };
 
     // --------------------------------------------------------------------
     // For Urtak.com Development Staff
@@ -426,7 +445,7 @@ function urtak_conf() {
       </p>
       <input id="urtak_publication_key" name="urtak_publication_key" type="text" size="40" maxlength="40" value="<?php echo get_option('urtak_publication_key'); ?>" /> 
 
-      <h3><label for="urtak_embed"><?php _e('Embedding Options'); ?></label></h3>
+      <h3><label for="urtak_embed"><?php _e('Widget Placement'); ?></label></h3>
       <p>Choose where you&apos;d like to place the widget.</p>
       <input style="vertical-align:baseline;" name="urtak_embed" type="radio" value="after_post" <?php if(get_option('urtak_embed') == 'after_post') { echo("checked='checked'"); } ?>/> 
       <span style="font-size:14px;padding:5px;">After My Post</span><br />
@@ -441,6 +460,10 @@ function urtak_conf() {
 <?php echo(htmlspecialchars('<?php make_urtak_widget(); ?>')); ?>
         </pre>
       </p>
+
+      <h3><label for="urtak_embed_on_homepage"><?php _e('Include on Homepage?'); ?></label></h3>
+      <p>By default Urtak is included with your articles listed on the homepage. If you only want it to appear once they click through, uncheck this box.</p>
+      <input id="urtak_embed_on_homepage" name="urtak_embed_on_homepage" type="checkbox" value="true" <?php echo check_embed_urtak_on_homepage(); ?>/> Place Urtak with my homepage's article listing
 
       <h3><label for="urtak_language"><?php _e('Language'); ?></label></h3>
       <p>
@@ -669,6 +692,10 @@ function urtak_results($l) {
 
 function check_add_urtak() {
   return (get_option('urtak_automatic_create') == 'true') ? 'checked' : '';
+}
+
+function check_embed_urtak_on_homepage() {
+  return (get_option('urtak_embed_on_homepage') == 'true') ? 'checked' : '';
 }
 
 function urtak_ready() {
