@@ -3,7 +3,7 @@ Contributors: Kunal Shah
 Tags: urtak, surveys, questions, polls, comments, engagement
 Requires at least: 3.0
 Tested up to: 3.2
-Stable tag: 0.9.8
+Stable tag: 0.9.9
 License: MIT
 
 == Description ==
@@ -85,6 +85,11 @@ We always recommend to insert at least one question of your own to get a convers
 Requires PHP-cURL
 
 == Changelog ==
+
+= 0.9.9 = 
+* New default to be more kinder - Urtak is only on pages where you first ask a question
+* Changing the title of your post changes the title on the Urtak Dashboard
+* Fix an edge case where if you by default do not want Urtak on every page and disapprove a previously approved question the widget still displays
 
 = 0.9.8 = 
 * Allow Urtak on Homepages, and make this the default

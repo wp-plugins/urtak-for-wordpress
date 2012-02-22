@@ -520,6 +520,18 @@ class UrtakResponse {
   }
   
   /**
+   * server error, returns true if Urtak API Response was in the 500 range
+   *
+   * @access  public
+   * @params  
+   * @return  boolean
+   */
+  public function server_error()
+  {
+    return ($this->code >= 500);
+  }
+  
+  /**
    * found, returns true if the requested record was found
    *
    * @access  public

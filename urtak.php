@@ -1,7 +1,7 @@
 <?php
 /**
  * @package Urtak
- * @version 0.9.8
+ * @version 0.9.9
  */
 
 /*
@@ -9,7 +9,7 @@ Plugin Name: Urtak
 Plugin URI: http://wordpress.org/extend/plugins/urtak/
 Description: Urtak gathers your users’ opinions by enabling them to ask and answer questions about your content. Letting your audience actively contribute by generating content with questions results in spending more time on site and sharing your content with their friends.
 Author: Kunal Shah
-Version: 0.9.8
+Version: 0.9.9
 Author URI: https://urtak.com/
 */
 
@@ -36,6 +36,9 @@ add_filter( 'plugin_action_links', 'urtak_plugin_action_links', 10, 2 );
 // Expose API calls from the New/Edit Post Page
 add_action('wp_ajax_update_urtak_question', 'update_urtak_question');
 add_action('wp_ajax_create_urtak_question', 'create_urtak_question');
+
+// Update the permalink and titles on save
+add_action( 'save_post', 'update_urtak' );
 
 // Global CSS
 add_action( 'admin_head', 'urtak_css' );
@@ -93,7 +96,7 @@ function urtak_activate() {
     update_option( 'urtak_home', 'https://urtak.com' );
   }
   if( !get_option('urtak_automatic_create') ) {
-    update_option('urtak_automatic_create', 'true');
+    update_option('urtak_automatic_create', '');
   }
   if( !get_option('urtak_embed') ) {
     update_option('urtak_embed', 'after_post');
@@ -375,12 +378,20 @@ function urtak_conf() {
 
       // this failed, deny our failures. print publication response failures first
       } elseif(isset($publication_response) && $publication_response->failure()) {
-        echo "<span style='color:red; font-weight:bold;'>Error setting up your publication!</span><br />";
+        echo "<span style='color:red; font-weight:bold;'>Error setting up your publication! Check your API Key and try again?</span><br />";
         echo $publication_response->error();
 
       // print test response failures next
-      } elseif(isset($test_response) && $test_response->failure()) {
-        echo "<span style='color:red; font-weight:bold;'>There was a problem connecting with Urtak</span><br />";
+      } elseif(isset($test_response) && $test_response->server_error()) {
+        echo "<span style='color:red; font-weight:bold;'>There was a problem connecting with Urtak. Check Urtak.com and try again shortly.</span><br />";
+
+      // print test response failures next
+      } elseif(isset($test_response) && $test_response->not_found()) {
+        echo "<span style='color:red; font-weight:bold;'>Your account was found but your API Key and/or Publication Key (advanced options) may be incorrect</span><br />";
+
+      // print test response failures next
+      } elseif(isset($test_response) && $test_response->error()) {
+        echo "<span style='color:red; font-weight:bold;'>There was a problem with this plugins' request to Urtak, we will look into it shortly.</span><br />";
         echo $test_response->code;
 
       // We tried to create an account and failed, they probably have an account
@@ -390,8 +401,13 @@ function urtak_conf() {
           echo "<span style='color:red; font-weight:bold;'>Enter your email address</span><br />";
           echo "Please enter your email address to proceed. If you already have an Urtak account, use the email address you registered with.<br /><br />";
         } else {
-          echo "<span style='color:red; font-weight:bold;'>You're already registered.</span><br />";
-          echo "Hello old friend, looks like you already have an account with us.<br />";
+          if($account_response->server_error()) {
+            echo "<span style='color:red; font-weight:bold;'>Urtak Server Error</span><br />";
+            echo "Ouch. Embarassing. Something is going wrong at Urtak.com and we're taking a look at it now.<br />";
+          } else {
+            echo "<span style='color:red; font-weight:bold;'>You're already registered.</span><br />";
+            echo "Hello old friend, looks like you already have an account with us.<br />";
+          }
         }
 
         echo "<a href='".get_option('urtak_home')."/api_keys' id='get_urtak_keys_popup'>Click here to sign in and get your keys.</a>";
@@ -476,8 +492,8 @@ function urtak_conf() {
 
       <h3><label for="urtak_automatic_create"><?php _e('Include Urtak by Default?'); ?></label></h3>
       <p>
-        Just like comments, Urtak is useful on every post. We highly recommend for you to keep this enabled. However, if you don't want to include 
-        it on every post just uncheck the box and Urtak will only appears on posts on which you've asked a question.
+        Just like comments, Urtak is useful on every post and we'd love to see it there. We however do not think it is fair to have this enabled by default at this point 
+        and leave it up to you to determine. Urtak will only appear on posts where you've already asked a question first.
       </p>
       <input id="urtak_automatic_create" name="urtak_automatic_create" type="checkbox" value="true" <?php echo check_add_urtak(); ?>/> Place an Urtak on each of my posts
 
@@ -596,12 +612,54 @@ function update_urtak_question() {
   }
   
   if($response->success()) {
+
+    // handles an edge case : if you don't want urtak by default but enabled it 
+    // by asking a question which you later un-approve, then make sure we check 
+    // the approved questions count and reset the _show_urtak meta accordingly
+    if (get_option('urtak_automatic_create') != 'true') {
+      if ($action != 'approve') {
+        $lookup = urtak_api()->get_urtak( 'post_id' , $post_id , array() );
+        if ($lookup->body['urtak']['questions']['approved']['count'] == '0') {
+          update_post_meta( $post_id, '_show_urtak' , '' );
+        }
+      } else {
+        update_post_meta( $post_id, '_show_urtak' , 'show' );
+      }
+    }
+
     echo "success";
   } else {
     echo $response->error();
   }
   
   die(); // this is (silly, but) required to return a proper result
+}
+
+function update_urtak( $post_id ) {
+
+  if(get_post_status($post_id) != 'inherit') {
+    
+    // Don't trust the WP post meta, always do an API call to see if an Urtak already exists
+    $lookup = urtak_api()->get_urtak( 'post_id' , $post_id , array() );
+  
+    // if an Urtak exists check to see if some fields are different and update accordingly
+    if($lookup->success()) {
+
+      $db_permalink = get_permalink($post_id);
+      $db_title     = get_the_title($post_id);
+
+      if(($lookup->body['urtak']['permalink'] != $db_permalink) || ($lookup->body['urtak']['title'] != $db_title)) {
+
+        $urtak = array(
+          'post_id'     => $post_id,
+          'permalink'   => $db_permalink,
+          'title'       => $db_title,
+        );
+
+        $response = urtak_api()->update_urtak( 'post_id' , $urtak );
+      }
+    }
+  }
 }
 
 // UI for Question Asking (post pages)
@@ -612,7 +670,7 @@ function urtak_questions_box( $post ) {
 
     // 404'ing is okay, but any other error in 400-500 is bad, so display it
     if((!($response->not_found())) && ($response->failure())) { 
-      echo "<strong>Sorry, but there was a problem connecting with Urtak ".$response->error()."</strong><br />";
+      echo "<span style='color:red;'>Sorry, but there was a problem connecting with Urtak ".$response->error()."</span><br />";
     }
 ?>
 
