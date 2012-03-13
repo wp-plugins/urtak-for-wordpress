@@ -1,0 +1,8 @@
+ISSUES/TODO/ROADMAP
+
+* Separate views into separate files
+* Internationalization
+* Expose Publisher Dashboard functionality
+* Improve styling of results
+* Move auto-creation out of plugin
+* AJAX Spinner should only spin for Urtak related actions
