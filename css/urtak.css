@@ -118,3 +118,38 @@ div.urtak_spam.urtak_off {
   padding-top: 5px; 
   margin: 0;
 }
+
+#urtak-configuration label {
+  font-size:14px;
+  font-weight:bold;
+  margin-top:4px;
+}
+
+.urtak-messages {
+  margin-top:10px;
+  padding:10px 20px;
+  font-size:13px;
+}
+
+#urtak-warning {
+  background-color: #FFFFE0;
+  border:1px solid #E6DB55;
+}
+
+#urtak-error {
+  background-color: #FFB1A4;
+  border:1px solid #E88A8B;
+}
+
+#urtak-success {
+  background-color: #D3FFDB;
+  border:1px solid #C0E8D2;
+}
+
+#urtak_api_key {
+  background-color: #ffedde;
+}
+
+#urtak_publication_key {
+  background-color: #e9f4fc;
+}

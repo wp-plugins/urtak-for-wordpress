@@ -1,23 +1,24 @@
 <?php
 /**
- * Urtak v1 API Wrapper for PHP
+ * Urtak API Wrapper for PHP
  * --------------------------------
- * @version:        0.9.7
+ * @version:        0.9.9
  * @author:         Kunal Shah <kunal@urtak.com>
  * @creation date:  September 08, 2011
- * @link:           https://urtak.com/dev
- * @copyright:      Copyright (c) 2011. For this version.
+ * @link:           https://github.com/urtak/urtak-php
+ * @copyright:      Copyright (c) 2012. For this version.
  */
 
 class Urtak {
 
+  protected $email              = ''; // Email Address
   protected $publication_key    = ''; // Publication Key
   protected $api_key            = ''; // API Key
   
   protected $urtak_home   = 'https://urtak.com';      // Home Url
   protected $api_home     = 'https://urtak.com/api';  // API Url
   protected $api_format   = 'JSON';                   // XML or JSON
-  protected $client_name  = 'Urtak API Wrapper for PHP v0.9.7';
+  protected $client_name  = 'Urtak API Wrapper for PHP v0.9.9';
 
   public function __construct($config = array())
   {
@@ -38,6 +39,10 @@ class Urtak {
   function initialize($config = array())
   {
     extract($config);
+    if(!empty($email))
+    {
+      $this->email = $email;
+    }
     if(!empty($publication_key))
     {
       $this->publication_key = $publication_key;
@@ -63,7 +68,7 @@ class Urtak {
       $this->api_format = $api_format;
     }
   }
-  
+
   // --------------------------------------------------------------------
   //                                ACCOUNTS
   // --------------------------------------------------------------------
@@ -92,7 +97,17 @@ class Urtak {
   //                                PUBLICATIONS
   // --------------------------------------------------------------------
 
-  /** Lookup a Publication
+  /** Get Publications
+   * 
+   * @access  @public
+   * @params  Lookup publications
+   * @return  UrtakResponse
+   */
+  public function get_publications($options) {
+    return $this->curl_request('/publications/', 'GET', array($options));
+  }
+
+  /** Get a Publication
    * 
    * @access  @public
    * @params  Lookup a publication
@@ -337,7 +352,12 @@ class Urtak {
   private function create_signature() {
     $timenow   = gmdate("U");
     $signature = sha1($timenow.' '.$this->api_key);
-    return array('timestamp' => $timenow, 'signature' => $signature, 'publication_key' => $this->publication_key);
+
+    if($this->publication_key != "") {
+      return array('timestamp' => $timenow, 'signature' => $signature, 'publication_key' => $this->publication_key);
+    } else {
+      return array('timestamp' => $timenow, 'signature' => $signature, 'email' => $this->email);
+    }
   }
   
   /** Content Negotiation
@@ -349,8 +369,7 @@ class Urtak {
   private function media_types() 
   {
     // Return output as XML/JSON w/ headers
-    if(strtoupper($this->api_format) == 'XML')
-    {
+    if(strtoupper($this->api_format) == 'XML') {
       return "application/vnd.urtak.urtak+xml; version=1.0";
     } elseif(strtoupper($this->api_format) == 'JSON') {   
       return "application/vnd.urtak.urtak+json; version=1.0";
@@ -366,16 +385,10 @@ class Urtak {
    */
   private function curl_request($path, $method, $data = array())
   {
-    // TODO - fallover to streams if cURL is not available.
-    if ( ! function_exists( 'curl_init' ) || ! function_exists( 'curl_exec' ) ) {
-      die('PHP-CURL is not installed, please run apt-get install php5-curl');
-    }
-
     $headers     = array();
     $curl_handle = curl_init();
 
     curl_setopt($curl_handle, CURLOPT_USERAGENT, $this->client_name);
-    curl_setopt($curl_handle, CURLOPT_CONNECTTIMEOUT, 2);
     curl_setopt($curl_handle, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($curl_handle, CURLOPT_ENCODING, "");
     curl_setopt($curl_handle, CURLOPT_CONNECTTIMEOUT, 5);
