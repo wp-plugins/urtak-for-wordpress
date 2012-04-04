@@ -3,7 +3,7 @@ Contributors: Kunal Shah, Urtak
 Tags: urtak, surveys, questions, polls, comments, engagement
 Requires at least: 3.0
 Tested up to: 3.3.1
-Stable tag: 0.9.9.1
+Stable tag: 0.9.9.2
 License: MIT
 
 == Description ==
@@ -50,6 +50,9 @@ For more information on settings and features, [visit the Frequently Asked Quest
 Requires PHP-cURL
 
 == Changelog ==
+
+= 0.9.9.2 =
+* HTML characters in the post title should not be double escaped
 
 = 0.9.9.1 =
 * Updates to expose publications more fully as they are now a fully released future of Urtak.com

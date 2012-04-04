@@ -1,7 +1,7 @@
 <?php
 /**
  * @package Urtak
- * @version 0.9.9.1
+ * @version 0.9.9.2
  */
 
 /*
@@ -9,7 +9,7 @@ Plugin Name: Urtak
 Plugin URI: http://wordpress.org/extend/plugins/urtak-for-wordpress/
 Description: Urtak is collaborative polling — everyone can ask questions. It's easy to engage a great number of people in a structured conversation that produces thousands of responses.
 Author: Kunal Shah, Urtak
-Version: 0.9.9.1
+Version: 0.9.9.2
 Author URI: https://github.com/urtak/urtak_for_wordpress
 */
 
@@ -80,7 +80,7 @@ function urtak_api() {
     'api_key'         => get_option('urtak_api_key'),
     'api_home'        => get_option('urtak_api_home'),
     'urtak_home'      => get_option('urtak_home'),
-    'client_name'     => "Urtak for Wordpress v0.9.9.1, running on WP ".$wp_version
+    'client_name'     => "Urtak for Wordpress v0.9.9.2, running on WP ".$wp_version
   );
   
   // Instantiate an Urtak API Wrapper Object

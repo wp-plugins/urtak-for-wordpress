@@ -117,7 +117,7 @@ function create_urtak_question() {
     $urtak = array(
       'post_id'     => $post_id,
       'permalink'   => get_permalink($post_id),
-      'title'       => get_the_title($post_id),
+      'title'       => get_post($post_id)->post_title,
     );
 
     $response = urtak_api()->create_urtak($urtak, $questions);
@@ -196,7 +196,7 @@ function update_urtak( $post_id ) {
     if($lookup->success()) {
 
       $db_permalink = get_permalink($post_id);
-      $db_title     = get_the_title($post_id);
+      $db_title     = get_post($post_id)->post_title;
 
       if(($lookup->body['urtak']['permalink'] != $db_permalink) || ($lookup->body['urtak']['title'] != $db_title)) {
 
