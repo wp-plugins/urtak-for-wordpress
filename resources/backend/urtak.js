@@ -160,31 +160,81 @@ jQuery(document).ready(function($) {
 	$('.urtak-card-plot-controls li').live('click', function(event) {
 		event.preventDefault();
 
-		var $this = $(this)
+		var $li = $(this)
+		, $this = $li.find('a')
+		, $parent = $this.parent()
 		, $card = $this.parents('.urtak-card')
 		, $clone = $card.clone()
 		, $question = $clone.find('.large-text')
 		, $answer = $clone.find('.urtak-adder-answer')
 		, $controls = $clone.find('.urtak-card-controls')
-		, answer = $this.attr('data-answer')
+		, answer = $parent.attr('data-answer')
 		, question = $.trim($question.val());
 
+		if($this.hasClass('activated')) {
+			if(!$parent.hasClass('card-question-answers-d') && '' != question) {
 
-		if(!$this.hasClass('card-question-answers-d') && '' != question) {
-			$clone.find('.urtak-card-plot-controls').hide();
-			$clone.find('.urtak-card-plot-' + answer).show();
-			$clone.find('.urtak-card-info-question').append(question);
+				$clone.find('.urtak-card-plot-controls').hide();
+				$clone.find('.urtak-card-plot-' + answer).show();
+				$clone.find('.urtak-card-info-question').append(question);
 
-			$answer.val(answer);
+				$answer.val(answer);
 
-			$controls.show();
-			$question.hide();
+				$controls.show();
+				$question.hide();
 
-			$clone.css({ opacity: 0 }).insertAfter($card).animate({ opacity: 1 }, { duration: 600 });
+				$clone.css({ opacity: 0 }).insertAfter($card).animate({ opacity: 1 }, { duration: 600 });
+			}
+
+			$parent.parent().find('a').removeClass('activated').removeClass('deactivated');
+			$card.find('.large-text').val('').focus();
+		} else {
+			$parent.parent().find('a').removeClass('activated').addClass('deactivated');
+			$this.removeClass('deactivated').addClass('activated');
 		}
 
-		$card.find('.large-text').val('');
+	});
 
+	$('.urtak-card-plot-controls li').live('mouseover', function(event) {
+		var $this = $(this), $link = $this.find('a');
+
+		$this.parent().find('a').removeClass('activated').addClass('deactivated');
+		$link.removeClass('deactivated').addClass('activated');
+	}).live('mouseout', function(event) {
+		var $this = $(this);
+
+		$this.parent().find('a').removeClass('activated').removeClass('deactivated');
+	});
+
+
+
+	$(document).keydown(function(event) {
+		var $selected = $('.urtak-card-plot-controls li a.activated, .urtak-card-plot-controls li a:focus');
+		var $last = $('.urtak-card-plot-controls li.card-question-answers-d a:focus');
+
+		if($selected.size() > 0 && (event.which === 27 || event.which === 9)) {
+			// check for escape or tab key press
+			$selected.parent().parent().find('a').removeClass('activated').removeClass('deactivated');
+
+			if(event.which === 27) {
+				$selected.parents('.urtak-card').find('textarea').focus();
+			}
+		}
+
+		if($last.size() > 0 && event.which === 9) {
+			// user tabbed from last field
+
+			event.preventDefault();
+			$('.urtak-card-plot-controls li.card-question-answers-y a').focus();
+		}
+	});
+
+	$('.urtak-card textarea').mousedown(function(event) {
+		var $selected = $('.urtak-card-plot-controls li a');
+
+		if($selected.size() > 0) {
+			$selected.parent().parent().find('a').removeClass('activated').removeClass('deactivated');
+		}
 	});
 
 	$('.urtak-card-controls-icon-special').live('click', function(event) {
@@ -316,6 +366,9 @@ var UrtakDelegates = (function(jQuery) {
 					min: -1,
 					tickLength: 0,
 					ticks: ticks
+				},
+				yaxis: {
+					min: 0
 				}
 			}
 		);

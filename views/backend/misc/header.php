@@ -8,8 +8,11 @@
 		<span class="urtak-wrap-title"><?php _e('Urtak', 'urtak'); ?></span>
 
 		<a href="<?php esc_attr_e(add_query_arg(array('page' => self::SUB_LEVEL_INSIGHTS_SLUG), $base), 'urtak'); ?>" class="nav-tab <?php if($is_insights) { ?>nav-tab-active<?php } ?>"><?php _e('Insights', 'urtak'); ?></a>
+
+		<?php if(current_user_can('manage_options')) { ?>
 		<a href="<?php esc_attr_e(add_query_arg(array('page' => self::SUB_LEVEL_SETTINGS_SLUG), $base), 'urtak'); ?>" class="nav-tab <?php if($is_settings) { ?>nav-tab-active<?php } ?>"><?php _e('Settings', 'urtak'); ?></a>
-		
+		<?php } ?>
+
 		<small class="urtak-logged-in">
 			<?php if($has_credentials) { ?>
 			<?php printf(__('Logged in as <a href="https://urtak.com/account/edit" target="_blank">%1$s</a>', 'urtak'), self::get_credentials('email')); ?>
