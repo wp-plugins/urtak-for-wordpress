@@ -3,7 +3,7 @@
  Plugin Name: Urtak
  Plugin URI: http://urtak.com/wordpress/
  Description: Conversation powered by questions. Bring simplicity and structure to any online conversation by allowing your users to ask each other questions.
- Version: 1.2.0
+ Version: 1.2.1
  Author: Urtak, Inc.
  Author URI: http://urtak.com
  */
@@ -13,7 +13,7 @@ if(!class_exists('UrtakPlugin')) {
 		/// CONSTANTS
 
 		//// VERSION
-		const VERSION = '1.2.0';
+		const VERSION = '1.2.1';
 
 		//// KEYS
 		const SETTINGS_KEY = '_urtak_settings';
@@ -62,10 +62,6 @@ if(!class_exists('UrtakPlugin')) {
 			add_action('init', array(__CLASS__, 'initialize_api_object'));
 			add_action('wp_head', array(__CLASS__, 'enqueue_frontend_resources'), 1);
 
-			/// DISABLE COMMENTS CALLBACKS
-			add_action('widgets_init', array(__CLASS__, 'disable_comments__remove_widget'));
-			add_action('wp_loaded', array(__CLASS__, 'disable_comments'));
-
 			/// AJAX
 			add_action('wp_ajax_urtak_display_meta_box__dashboard', array(__CLASS__, 'ajax_display_meta_box'));
 			add_action('wp_ajax_urtak_display_meta_box__insights', array(__CLASS__, 'ajax_display_meta_box'));
@@ -76,6 +72,7 @@ if(!class_exists('UrtakPlugin')) {
 			add_action('wp_ajax_urtak_get_questions', array(__CLASS__, 'ajax_get_questions'));
 			add_action('wp_ajax_urtak_fetch_responses_counts', array(__CLASS__, 'ajax_fetch_responses_count'));
 			add_action('wp_ajax_nopriv_urtak_fetch_responses_counts', array(__CLASS__, 'ajax_fetch_responses_count'));
+			add_action('wp_ajax_urtak_modify_question_first', array(__CLASS__, 'ajax_modify_question_first'));
 			add_action('wp_ajax_urtak_modify_question_status', array(__CLASS__, 'ajax_modify_question_status'));
 		}
 
@@ -89,6 +86,8 @@ if(!class_exists('UrtakPlugin')) {
 		private static function initialize_defaults() {
 			// Empty credentials to stat
 			self::$default_settings['credentials'] = array();
+
+			self::$default_settings['has_first_question'] = 'no';
 
 			// We want the Urtaks to appear by default, so let's append them
 			self::$default_settings['placement'] = 'append';
@@ -105,9 +104,6 @@ if(!class_exists('UrtakPlugin')) {
 			// Auto height and width
 			self::$default_settings['height'] = '';
 			self::$default_settings['width'] = '';
-
-			// Remove the noise that comments generate
-			self::$default_settings['disable-comments'] = 'no';
 
 			// Counter settings
 			self::$default_settings['counter-icon'] = 'yes';
@@ -149,7 +145,7 @@ if(!class_exists('UrtakPlugin')) {
 
 		public static function ajax_get_questions() {
 			$data = stripslashes_deep($_REQUEST);
-			$atts = shortcode_atts(array('page' => 1, 'per_page' => 10, 'order' => 'time|DESC', 'show' => 'all', 'search' => '', 'post_id' => 0), $data);
+			$atts = shortcode_atts(array('page' => 1, 'per_page' => 10, 'order' => 'time|DESC', 'show' => 'all', 'search' => '', 'post_id' => 0, 'default_question' => 0), $data);
 
 			extract($atts);
 			if(empty($post_id)) {
@@ -173,12 +169,28 @@ if(!class_exists('UrtakPlugin')) {
 
 					$pager = self::_get_pager($page, $questions_response['questions']['pages']);
 
-					$data = compact('pager', 'cards');
+					$default_first_question_text = '';
+					if($default_question && empty($cards)) {
+						$publication = self::get_publication(self::get_credentials('publication-key'));
+
+						$default_first_question_text = $publication['default_first_question_text'];
+					}
+
+					$data = compact('pager', 'cards', 'default_first_question_text');
 				}
 			}
 
 			echo json_encode($data);
 			exit;
+		}
+
+
+		public static function ajax_modify_question_first() {
+			$data = stripslashes_deep($_REQUEST);
+
+			$first_question = 1 == $data['first_question'];
+
+			self::update_urtak_question($data['post_id'], $data['question_id'], array('question' => array('first_question' => $first_question)));
 		}
 
 		public static function ajax_modify_question_status() {
@@ -330,68 +342,6 @@ if(!class_exists('UrtakPlugin')) {
 			return $content;
 		}
 
-		/**
-		 * Big thank you to the Disable Comments plugin for these.
-		 */
-		public static function disable_comments() {
-			if(self::comments_are_disabled()) {
-				foreach(self::get_settings('post-types') as $post_type_key) {
-					if( post_type_supports($post_type_key, 'comments') ) {
-						remove_post_type_support($post_type_key, 'comments');
-						remove_post_type_support($post_type_key, 'trackbacks');
-					}
-				}
-
-				add_filter('comments_open', array(__CLASS__, 'disable_comments__filter_comment_status'), 20, 2 );
-				add_filter('pings_open', array(__CLASS__, 'disable_comments__filter_comment_status'), 20, 2 );
-
-				add_action('admin_head', array(__CLASS__, 'disable_comments__hide_discussion_rightnow'));
-				add_action('admin_menu', array(__CLASS__, 'disable_comments__filter_admin_menu'), 9999);
-				add_action('edit_form_advanced', array(__CLASS__, 'disable_comments__edit_form_inputs'));
-				add_action('edit_page_form', array(__CLASS__, 'disable_comments__edit_form_inputs'));
-				add_action('wp_dashboard_setup', array(__CLASS__, 'disable_comments__filter_dashboard'));
-
-				remove_action('admin_bar_menu', 'wp_admin_bar_comments_menu', 60);
-			}
-		}
-
-		public static function disable_comments__discussion_js() {
-			echo '<script> jQuery(document).ready(function($){ $("#dashboard_right_now .table_discussion").has(\'a[href="edit-comments.php"]\').first().hide(); }); </script>';
-		}
-
-		public static function disable_comments__edit_form_inputs() {
-			global $post;
-			if(in_array($post->post_type, self::get_settings('post-types'))) {
-				echo '<input type="hidden" name="comment_status" value="' . $post->comment_status . '" /><input type="hidden" name="ping_status" value="' . $post->ping_status . '" />';
-			}
-		}
-
-		public static function disable_comments__hide_discussion_rightnow(){
-			if('dashboard' == get_current_screen()->id) {
-				add_action('admin_print_footer_scripts', array(__CLASS__, 'disable_comments__discussion_js'));
-			}
-		}
-
-		public static function disable_comments__filter_admin_menu(){
-			global $menu;
-			if(isset($menu[25]) && $menu[25][2] == 'edit-comments.php') {
-				unset($menu[25]);
-			}
-		}
-
-		public static function disable_comments__filter_comment_status($open, $post_id) {
-			return false;
-		}
-
-		public static function disable_comments__filter_dashboard() {
-			remove_meta_box('dashboard_recent_comments', 'dashboard', 'normal');
-		}
-
-		public static function disable_comments__remove_widget() {
-			if(self::comments_are_disabled()) {
-				unregister_widget('WP_Widget_Recent_Comments');
-			}
-		}
 
 		public static function enqueue_administrative_resources($hook) {
 			wp_enqueue_style('urtak-backend', plugins_url('resources/backend/urtak.css', __FILE__), array(), self::VERSION);
@@ -453,6 +403,10 @@ if(!class_exists('UrtakPlugin')) {
 		public static function sanitize_and_validate_settings($settings) {
 			$settings['placement'] = 'manual' === $settings['placement'] ? 'manual' : 'append';
 
+			$settings['default_first_question'] = trim($settings['default_first_question']);
+			$settings['has_first_question'] = 'yes' === pd_yes_no($settings['has_first_question']) && !empty($settings['default_first_question']) ? 'yes' : 'no';
+			$settings['default_first_question'] = 'no' === $settings['has_first_question'] ? '' : $settings['default_first_question'];
+
 			$settings['homepage'] = pd_yes_no($settings['homepage']);
 
 			$settings['user-start'] = pd_yes_no($settings['user-start']);
@@ -466,8 +420,6 @@ if(!class_exists('UrtakPlugin')) {
 
 			$settings['width'] = is_numeric($settings['width']) ? intval($settings['width']) : '';
 			$settings['width'] = is_int($settings['width']) && $settings['width'] < 280 ? 280 : $settings['width'];
-
-			$settings['disable-comments'] = pd_yes_no($settings['disable-comments']);
 
 			$publication_fields = $settings['publication'];
 			unset($settings['publication']);
@@ -483,6 +435,7 @@ if(!class_exists('UrtakPlugin')) {
 					$publication = self::create_or_get_publication_for_host(
 											$name,
 											$host,
+											$settings['default_first_question'],
 											$settings['moderation'],
 											$settings['credentials']['email'],
 											$urtak_api);
@@ -498,6 +451,7 @@ if(!class_exists('UrtakPlugin')) {
 					$publication = self::create_publication(
 											$name,
 											$host,
+											$settings['default_first_question'],
 											$settings['moderation'],
 											$settings['credentials']['email'],
 											$urtak_api);
@@ -520,6 +474,7 @@ if(!class_exists('UrtakPlugin')) {
 					$publication = self::update_publication(
 											$name,
 											$host,
+											$settings['default_first_question'],
 											$settings['moderation'],
 											$settings['credentials']['publication-key'],
 											$urtak_api);
@@ -545,12 +500,17 @@ if(!class_exists('UrtakPlugin')) {
 		      'title'       => $post->post_title,
 		    );
 
-			$questions = array_unique(array_filter((array)$data['urtak']['question']['text']));
-
-			$new_questions = array();
-			foreach($questions as $key => $question) {
-				$new_questions[] = array('text' => $question);
-			}
+		    $question_texts = array();
+		    $new_questions = array();
+		    foreach((array)$data['urtak']['question']['text'] as $key => $question_text) {
+		    	if(!empty($question_text) && !in_array($question_text, $question_texts)) {
+			    	$new_questions[] = array(
+			    		'text' => $question_text,
+			    		'first_question' => 1 == $data['urtak']['question']['first_question'][$key] ? '1' : '0',
+			    	);
+			    	$question_texts[] = $question_text;
+		    	}
+		    }
 
 			$urtak = self::get_urtak($post_id);
 			if(empty($urtak)) {
@@ -635,18 +595,19 @@ if(!class_exists('UrtakPlugin')) {
 			$data = stripslashes_deep($_REQUEST);
 			$is_settings = true;
 
+			$settings = self::get_settings();
+
 			if(self::has_credentials()) {
 				$publications = self::get_publications();
 			}
 
-			$settings = self::get_settings();
+			if(self::has_credentials() && isset($settings['credentials']['publication-key'])) {
+				$publication = self::get_publication($settings['credentials']['publication-key']);
 
-			if(!empty($publications) && isset($settings['credentials']['publication-key'])) {
-				foreach($publications as $publication) {
-					if($publication['key'] == $settings['credentials']['publication-key']) {
-						$settings['moderation'] = $publication['moderation'];
-						break;
-					}
+				if($publication) {
+					$settings['moderation'] = $publication['moderation'];
+					$settings['default_first_question'] = $publication['default_first_question_text'];
+					$settings['has_first_question'] = empty($settings['default_first_question']) ? 'no' : 'yes';
 				}
 			}
 
@@ -855,12 +816,6 @@ if(!class_exists('UrtakPlugin')) {
 					&& !empty($credentials['id']);
 		}
 
-		/// COMMENTS
-
-		private static function comments_are_disabled() {
-			return 'yes' === self::get_settings('disable-comments');
-		}
-
 		/// API DELEGATES
 
 		private static function get_urtak_api($urtak_api) {
@@ -873,7 +828,7 @@ if(!class_exists('UrtakPlugin')) {
 
 		//// Publications
 
-		private static function create_or_get_publication_for_host($name, $host, $moderation, $email, $urtak_api = null) {
+		private static function create_or_get_publication_for_host($name, $host, $default_first_question, $moderation, $email, $urtak_api = null) {
 			$publications = self::get_publications($urtak_api);
 
 			foreach($publications as $publication) {
@@ -885,10 +840,10 @@ if(!class_exists('UrtakPlugin')) {
 			}
 
 			// There wasn't an existing item, so we need to create one
-			return self::create_publication($name, $host, $moderation, $email, $urtak_api);
+			return self::create_publication($name, $host, $default_first_question, $moderation, $email, $urtak_api);
 		}
 
-		private static function create_publication($name, $host, $moderation, $email, $urtak_api = null) {
+		private static function create_publication($name, $host, $default_first_question, $moderation, $email, $urtak_api = null) {
 			$urtak_api = self::get_urtak_api($urtak_api);
 
 			$publication_args = array(
@@ -896,6 +851,7 @@ if(!class_exists('UrtakPlugin')) {
 			    'name'       => $name,
 			    'platform'   => 'wordpress',
 			    'moderation' => $moderation,
+			    'default_first_question_text' => $default_first_question,
 			    'theme'      => 15
 			);
 			$create_response = $urtak_api->create_publication('email', $email, $publication_args);
@@ -941,7 +897,7 @@ if(!class_exists('UrtakPlugin')) {
 			return $publications;
 		}
 
-		private static function update_publication($name, $host, $moderation, $key, $urtak_api = null) {
+		private static function update_publication($name, $host, $default_first_question, $moderation, $key, $urtak_api = null) {
 			$urtak_api = self::get_urtak_api($urtak_api);
 
 			$publication_args = array(
@@ -949,6 +905,7 @@ if(!class_exists('UrtakPlugin')) {
 				// 'name' => $name,
 				'platform' => 'wordpress',
 				'moderation' => $moderation,
+				'default_first_question_text' => $default_first_question,
 				'theme' => 15
 			);
 			$update_response = $urtak_api->update_publication($key, $publication_args);

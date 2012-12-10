@@ -89,6 +89,42 @@
 
 		<div class="urtak-individual-settings-section">
 
+			<h3><?php _e('First Question', 'urtak'); ?></h3>
+
+			<div class="urtak-field">
+				<div class="urtak-checkbox-container">
+					<label class="urtak-checkbox">
+						<div class="urtak-checkbox-input-container">
+							<input <?php checked($settings['has_first_question'], 'no'); ?> type="radio" name="urtak[has_first_question]" id="urtak-has_first_question-no" value="no" />
+						</div><?php _e('No default first question', 'urtak'); ?>
+					</label>
+				</div>
+
+				<div class="urtak-checkbox-container">
+					<label class="urtak-checkbox">
+						<div class="urtak-checkbox-input-container">
+							<input <?php checked($settings['has_first_question'], 'yes'); ?> type="radio" name="urtak[has_first_question]" id="urtak-has_first_question-yes" value="yes" />
+						</div><?php _e('Use a default first question', 'urtak'); ?>
+					</label>
+				</div>
+
+				<div id="urtak-help-has_first_question-yes">
+					<p class="urtak-help">
+						<label for="urtak-default_first_question">
+							<?php _e('Please enter the default question you would like to use:'); ?>
+						</label>
+					</p>
+					<p class="urtak-help">
+						<input type="text" class="text large-text" id="urtak-default_first_question" name="urtak[default_first_question]" value="<?php esc_attr_e($settings['default_first_question']); ?>" />
+					</p>
+				</div>
+
+			</div>
+
+		</div>
+
+		<div class="urtak-individual-settings-section">
+
 			<h3><?php _e('Moderation', 'urtak'); ?></h3>
 
 			<div class="urtak-field">
@@ -273,26 +309,6 @@
 
 				<p class="urtak-help">
 					<input readonly="readonly" type="text" class="code text large-text" id="urtak-counter-tag" value="<?php esc_attr_e("<?php do_action('make_urtak_counter'); ?>", 'urtak'); ?>" />
-				</p>
-			</div>
-
-		</div>
-
-		<div class="urtak-individual-settings-section">
-
-			<h3><?php _e('Disable Comments', 'urtak'); ?></h3>
-
-			<div class="urtak-field">
-				<input type="hidden" name="urtak[disable-comments]" id="urtak-disable-comments-hidden" value="no" />
-				<label class="urtak-checkbox">
-					<div class="urtak-checkbox-input-container">
-						<input <?php checked($settings['disable-comments'], 'yes'); ?> type="checkbox" name="urtak[disable-comments]" id="urtak-disable-comments" value="yes" />
-					</div><?php _e('Disable all commenting features', 'urtak'); ?>
-				</label>
-				<p class="urtak-help">
-					<label for="urtak-disable-comments">
-						<?php _e('Do away with comments on your site. Conversations are better when people ask questions.', 'urtak'); ?>
-					</label>
 				</p>
 			</div>
 
